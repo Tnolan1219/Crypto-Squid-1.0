@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crypto Squid Dashboard</title>
+  <style>
+    :root {
+      --bg: #08111b;
+      --panel: #0f1c2a;
+      --line: #1f3246;
+      --text: #d9e5f3;
+      --muted: #8ea3bb;
+      --good: #26c281;
+      --bad: #ff6b6b;
+      --accent: #3fa9f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 0% 0%, #14304b 0%, var(--bg) 40%);
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 4px 0 14px; font-size: 24px; }
+    .meta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #0b1724;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .grid { display: grid; gap: 12px; }
+    .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .chart-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .panel {
+      background: linear-gradient(180deg, #101f30 0%, var(--panel) 100%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .label { color: var(--muted); font-size: 12px; }
+    .value { font-size: 22px; margin-top: 2px; }
+    .good { color: var(--good); }
+    .bad { color: var(--bad); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px 6px; }
+    th { color: var(--muted); font-weight: 600; }
+    .table-wrap { overflow-x: auto; }
+    .chart { width: 100%; height: 180px; display: block; }
+    .chart-title { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+    .small { font-size: 12px; color: var(--muted); }
+    .open-pos { font-size: 13px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Crypto Squid Local Dashboard</h1>
+    <div class="meta">
+      <div class="pill" id="updatedAt">Updated: --</div>
+      <div class="pill" id="modeTag">Mode: --</div>
+      <div class="pill" id="statusTag">Status: waiting</div>
+    </div>
+
+    <div class="grid kpis">
+      <div class="panel"><div class="label">Balance</div><div class="value" id="balance">--</div></div>
+      <div class="panel"><div class="label">Realized P/L</div><div class="value" id="realized">--</div></div>
+      <div class="panel"><div class="label">Unrealized P/L</div><div class="value" id="unrealized">--</div></div>
+      <div class="panel"><div class="label">Total P/L %</div><div class="value" id="totalPct">--</div></div>
+      <div class="panel"><div class="label">Leveraged P/L %</div><div class="value" id="leveragedPct">--</div></div>
+      <div class="panel"><div class="label">Win Rate</div><div class="value" id="winRate">--</div></div>
+      <div class="panel"><div class="label">Expectancy / Trade</div><div class="value" id="expectancy">--</div></div>
+      <div class="panel"><div class="label">Profit Factor</div><div class="value" id="profitFactor">--</div></div>
+      <div class="panel"><div class="label">Closed Trades</div><div class="value" id="tradesClosed">--</div></div>
+    </div>
+
+    <div class="grid chart-grid" style="margin-top:12px;">
+      <div class="panel">
+        <p class="chart-title">BTC % Change (3m window)</p>
+        <svg class="chart" id="btcChart"></svg>
+      </div>
+      <div class="panel">
+        <p class="chart-title">ETH % Change (3m window)</p>
+        <svg class="chart" id="ethChart"></svg>
+      </div>
+      <div class="panel">
+        <p class="chart-title">Equity Curve %</p>
+        <svg class="chart" id="equityChart"></svg>
+      </div>
+      <div class="panel">
+        <p class="chart-title">Open Position</p>
+        <div class="open-pos" id="openPosition">No active position</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px;">
+      <p class="chart-title">Live Symbol Metrics</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Symbol</th><th>Price</th><th>Drop %</th><th>Z-Score</th></tr>
+          </thead>
+          <tbody id="symbolRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px;">
+      <p class="chart-title">Recent Trades</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time (UTC)</th><th>Symbol</th><th>Entry</th><th>Exit</th><th>Size</th><th>Reason</th><th>P/L</th><th>P/L %</th>
+            </tr>
+          </thead>
+          <tbody id="tradeRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function fmtMoney(n) {
+      if (n === undefined || n === null) return "--";
+      return `$${Number(n).toFixed(2)}`;
+    }
+
+    function fmtPct(n) {
+      if (n === undefined || n === null) return "--";
+      return `${Number(n).toFixed(2)}%`;
+    }
+
+    function paintValue(el, n, suffix = "") {
+      el.textContent = n === undefined || n === null ? "--" : `${Number(n).toFixed(2)}${suffix}`;
+      el.classList.remove("good", "bad");
+      if (n > 0) el.classList.add("good");
+      if (n < 0) el.classList.add("bad");
+    }
+
+    function drawPercentChart(svgId, points, color) {
+      const svg = document.getElementById(svgId);
+      const width = svg.clientWidth || 320;
+      const height = svg.clientHeight || 180;
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.innerHTML = "";
+      if (!points || points.length < 2) return;
+      const min = Math.min(...points);
+      const max = Math.max(...points);
+      const range = max - min || 1;
+      const line = points.map((value, i) => {
+        const x = (i / (points.length - 1)) * width;
+        const y = height - ((value - min) / range) * height;
+        return `${x},${y}`;
+      }).join(" ");
+      const axisY = height - ((0 - min) / range) * height;
+      const axis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      axis.setAttribute("x1", "0");
+      axis.setAttribute("x2", String(width));
+      axis.setAttribute("y1", String(axisY));
+      axis.setAttribute("y2", String(axisY));
+      axis.setAttribute("stroke", "#1f3246");
+      axis.setAttribute("stroke-width", "1");
+      svg.appendChild(axis);
+      const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      poly.setAttribute("fill", "none");
+      poly.setAttribute("stroke", color);
+      poly.setAttribute("stroke-width", "2");
+      poly.setAttribute("points", line);
+      svg.appendChild(poly);
+    }
+
+    function pctSeriesFromHistory(history) {
+      if (!history || history.length < 2) return [];
+      const base = Number(history[0].price);
+      if (!base) return [];
+      return history.map(item => (Number(item.price) - base) / base * 100);
+    }
+
+    function render(state) {
+      document.getElementById("updatedAt").textContent = `Updated: ${state.updated_at || "--"}`;
+      const mode = state.mode || {};
+      let modeText = "Log-Only";
+      if (mode.enable_live_trading) modeText = "Live Enabled";
+      else if (mode.paper_mode) modeText = "Paper Mode";
+      document.getElementById("modeTag").textContent = `Mode: ${modeText}`;
+      document.getElementById("statusTag").textContent = `Status: ${state.status || "running"}`;
+
+      const account = state.account || {};
+      document.getElementById("balance").textContent = fmtMoney(account.balance);
+      paintValue(document.getElementById("realized"), account.realized_pnl, "");
+      document.getElementById("realized").textContent = fmtMoney(account.realized_pnl);
+      paintValue(document.getElementById("unrealized"), account.unrealized_pnl, "");
+      document.getElementById("unrealized").textContent = fmtMoney(account.unrealized_pnl);
+      paintValue(document.getElementById("totalPct"), account.total_pnl_pct, "%");
+      paintValue(document.getElementById("leveragedPct"), account.leveraged_total_pnl_pct, "%");
+      const stats = state.stats || {};
+      document.getElementById("winRate").textContent = fmtPct(stats.win_rate_pct);
+      document.getElementById("expectancy").textContent = fmtMoney(stats.expectancy_usd_per_trade);
+      document.getElementById("profitFactor").textContent = Number(stats.profit_factor || 0).toFixed(2);
+      document.getElementById("tradesClosed").textContent = String(stats.trades_closed || 0);
+
+      const symbolRows = document.getElementById("symbolRows");
+      symbolRows.innerHTML = "";
+      const symbols = state.symbols || {};
+      Object.keys(symbols).forEach(symbol => {
+        const row = document.createElement("tr");
+        const d = symbols[symbol] || {};
+        row.innerHTML = `<td>${symbol}</td><td>${Number(d.price || 0).toFixed(2)}</td><td>${Number(d.drop_pct || 0).toFixed(2)}%</td><td>${Number(d.zscore || 0).toFixed(2)}</td>`;
+        symbolRows.appendChild(row);
+      });
+
+      const open = state.active_position || state.position;
+      if (!open) {
+        document.getElementById("openPosition").textContent = "No active position";
+      } else {
+        document.getElementById("openPosition").innerHTML =
+          `<b>${open.symbol}</b><br>` +
+          `Entry: ${Number(open.entry).toFixed(2)} | Mark: ${Number(open.mark_price || open.entry).toFixed(2)}<br>` +
+          `Size: ${Number(open.size).toFixed(6)} | TP: ${Number(open.tp).toFixed(2)} | SL: ${Number(open.stop).toFixed(2)}<br>` +
+          `Age: ${Number(open.age_minutes || 0).toFixed(1)}m | Unrealized: ${fmtMoney(open.unrealized_pnl)}`;
+      }
+
+      const trades = (state.trades || []).slice().reverse();
+      const tradeRows = document.getElementById("tradeRows");
+      tradeRows.innerHTML = "";
+      trades.forEach(trade => {
+        const row = document.createElement("tr");
+        const pnl = Number(trade.pnl || 0);
+        row.innerHTML =
+          `<td class="small">${trade.ts || ""}</td>` +
+          `<td>${trade.symbol || ""}</td>` +
+          `<td>${Number(trade.entry || 0).toFixed(2)}</td>` +
+          `<td>${Number(trade.exit || 0).toFixed(2)}</td>` +
+          `<td>${Number(trade.size || 0).toFixed(6)}</td>` +
+          `<td>${trade.reason || ""}</td>` +
+          `<td class="${pnl >= 0 ? "good" : "bad"}">${fmtMoney(pnl)}</td>` +
+          `<td class="${pnl >= 0 ? "good" : "bad"}">${fmtPct(trade.pnl_pct || 0)}</td>`;
+        tradeRows.appendChild(row);
+      });
+
+      const btcHistory = symbols["BTC-USD"] ? symbols["BTC-USD"].history : [];
+      const ethHistory = symbols["ETH-USD"] ? symbols["ETH-USD"].history : [];
+      drawPercentChart("btcChart", pctSeriesFromHistory(btcHistory), "#3fa9f5");
+      drawPercentChart("ethChart", pctSeriesFromHistory(ethHistory), "#f7b267");
+
+      const start = Number(account.starting_balance || 0);
+      let running = start;
+      const equityPct = [];
+      (state.trades || []).forEach(t => {
+        running += Number(t.pnl || 0);
+        if (start > 0) equityPct.push((running - start) / start * 100);
+      });
+      if (equityPct.length === 0 && start > 0) equityPct.push(0);
+      drawPercentChart("equityChart", equityPct, "#26c281");
+    }
+
+    async function refresh() {
+      try {
+        const response = await fetch("/api/state", { cache: "no-store" });
+        const state = await response.json();
+        render(state);
+      } catch {
+        document.getElementById("statusTag").textContent = "Status: disconnected";
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

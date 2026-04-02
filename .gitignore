@@ -1,0 +1,16 @@
+.env
+.claude/settings.local.json
+__pycache__/
+*.pyc
+*.pyo
+logs/
+data/trades/*.db
+data/trades/*.json
+data/events/*.csv
+backtests/runs/
+journal/raw-trades/
+reports/daily/paper-test-*.json
+reports/daily/paper-test-*.md
+*.egg-info/
+.venv/
+venv/
