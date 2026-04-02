@@ -11,6 +11,9 @@ backtests/runs/
 journal/raw-trades/
 reports/daily/paper-test-*.json
 reports/daily/paper-test-*.md
+reports/daily/session-*.json
+reports/daily/session-*.md
+data/logs/
 *.egg-info/
 .venv/
 venv/

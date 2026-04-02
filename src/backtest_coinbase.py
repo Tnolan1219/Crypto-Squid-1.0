@@ -5,13 +5,15 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-from datetime import datetime, timezone
+from dataclasses import replace
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from coinbase.rest import RESTClient
 
 from paper_engine import PaperEngine
-from risk import position_size
+from config import load_config
+from risk import RiskEngine, position_size
 from strategy import check_entry
 from tracker import MarketTracker
 
@@ -143,9 +145,18 @@ def _run(symbols: list[str], candles_by_symbol: dict[str, list[dict]], start_bal
     events.sort(key=lambda row: (row[0], row[1]))
 
     engine = PaperEngine(balance=start_balance)
+    simulated_day = _utc_now().date()
+
+    def _simulated_today() -> date:
+        return simulated_day
+
+    cfg = replace(load_config(), account_capital_usd=float(start_balance))
+    risk_engine = RiskEngine(cfg, today_provider=_simulated_today)
+
     active_symbol = None
     equity_curve = []
     for ts, _, symbol, price in events:
+        simulated_day = datetime.fromtimestamp(ts, tz=timezone.utc).date()
         last_price[symbol] = price
         trackers[symbol].update(price)
         drop = trackers[symbol].get_drop_pct()
@@ -155,22 +166,40 @@ def _run(symbols: list[str], candles_by_symbol: dict[str, list[dict]], start_bal
             opened_ts = int(engine.position.get("opened_at_candle_ts", ts))
             age_minutes = (ts - opened_ts) / 60.0
             if age_minutes >= MAX_HOLD_MINUTES:
-                engine.exit(price, "TIME_STOP")
+                closed = engine.exit(price, "TIME_STOP", exit_ts=float(ts), exit_iso=_iso(ts))
+                risk_engine.register_trade_close(float(closed.get("pnl", 0.0)))
                 active_symbol = None
             elif price <= engine.position["stop"]:
-                engine.exit(price, "SL")
+                closed = engine.exit(price, "SL", exit_ts=float(ts), exit_iso=_iso(ts))
+                risk_engine.register_trade_close(float(closed.get("pnl", 0.0)))
                 active_symbol = None
             elif price >= engine.position["tp"]:
-                engine.exit(price, "TP")
+                closed = engine.exit(price, "TP", exit_ts=float(ts), exit_iso=_iso(ts))
+                risk_engine.register_trade_close(float(closed.get("pnl", 0.0)))
                 active_symbol = None
 
-        if engine.position is None and check_entry(symbol, drop, zscore):
+        risk_check = risk_engine.can_open_trade(
+            has_open_position=engine.position is not None,
+            market_data_healthy=True,
+            exchange_healthy=True,
+        )
+        if risk_check.allowed and engine.position is None and check_entry(symbol, drop, zscore):
             entry = price * 0.9995
             stop = price * 0.995
             tp = price * (1.01 if symbol == "BTC-USD" else 1.012)
             size = position_size(engine.balance, entry, stop)
             if size > 0:
-                engine.enter(symbol, entry, size, stop, tp, drop, zscore)
+                engine.enter(
+                    symbol,
+                    entry,
+                    size,
+                    stop,
+                    tp,
+                    drop,
+                    zscore,
+                    opened_at_ts=float(ts),
+                    opened_at_iso=_iso(ts),
+                )
                 if engine.position:
                     engine.position["opened_at_candle_ts"] = ts
                 active_symbol = symbol
@@ -180,7 +209,9 @@ def _run(symbols: list[str], candles_by_symbol: dict[str, list[dict]], start_bal
 
     if engine.position and active_symbol:
         final_price = last_price.get(active_symbol) or engine.position["entry"]
-        engine.exit(final_price, "BACKTEST_END")
+        final_ts = max((row[0] for row in events), default=int(_utc_now().timestamp()))
+        closed = engine.exit(final_price, "BACKTEST_END", exit_ts=float(final_ts), exit_iso=_iso(final_ts))
+        risk_engine.register_trade_close(float(closed.get("pnl", 0.0)))
     return engine, equity_curve
 
 

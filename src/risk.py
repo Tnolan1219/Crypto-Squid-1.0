@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Callable
 
 from config import Config
 
@@ -24,9 +25,10 @@ class RiskCheckResult:
 
 
 class RiskEngine:
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, today_provider: Callable[[], date] | None = None):
         self.cfg = cfg
-        self._day = date.today()
+        self._today_provider = today_provider or date.today
+        self._day = self._today_provider()
         self._trades_today = 0
         self._consecutive_losses = 0
         self._realized_pnl_usd = 0.0
@@ -70,7 +72,7 @@ class RiskEngine:
         return round(risk / stop_distance, 6)
 
     def _roll_day_if_needed(self) -> None:
-        today = date.today()
+        today = self._today_provider()
         if today == self._day:
             return
         self._day = today
