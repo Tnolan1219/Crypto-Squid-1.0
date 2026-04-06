@@ -9,9 +9,14 @@ from typing import Callable
 from config import Config
 
 
-def position_size(balance: float, entry: float, stop: float) -> float:
+def position_size(
+    balance: float,
+    entry: float,
+    stop: float,
+    risk_per_trade_pct: float = 0.50,
+) -> float:
     """Module-level helper used by the Coinbase paper bot loop."""
-    risk = balance * 0.005  # 0.5% per trade
+    risk = balance * (risk_per_trade_pct / 100.0)
     distance = abs(entry - stop)
     if distance == 0:
         return 0.0

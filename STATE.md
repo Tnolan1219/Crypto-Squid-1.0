@@ -20,6 +20,15 @@ Built full CRYPTO SQUID v2 system:
 ## In Progress
 Phase 1 — Event collection. Run bot_v2.py to accumulate candidate events.
 
+## Runtime Status
+- VPS attach layer ready:
+  - `core/engine.py` master loop
+  - `core/strategy_manager.py` dynamic strategy controls
+  - `core/execution_router.py` centralized execution guardrails
+  - `core/supabase_control.py` remote polling + heartbeat
+  - `scripts/run_all.py` one-command runtime entrypoint
+- Strategy logic remains unchanged (adapter wraps existing v2 behavior)
+
 ## Go-Live Gate (from docs/ANTI_OVERFITTING_PROTOCOL.md)
 - [ ] 300+ candidate events in data/events/events.csv
 - [ ] 80+ paper trades closed

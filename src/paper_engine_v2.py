@@ -20,8 +20,17 @@ class PaperEngineV2:
     def __init__(self, balance: float = 1000.0):
         self.balance = balance
         self.start_balance = balance
-        self.position: Optional[dict] = None
+        self.positions: dict[str, dict] = {}
         self.trades: list[dict] = []
+
+    @property
+    def position(self) -> Optional[dict]:
+        if not self.positions:
+            return None
+        return next(iter(self.positions.values()))
+
+    def has_open_position(self, symbol: str) -> bool:
+        return symbol in self.positions
 
     # ── Entry ─────────────────────────────────────────────────────────────────
 
@@ -37,9 +46,11 @@ class PaperEngineV2:
         time_stop_minutes: float,
         fast_reduce_minutes: float,
     ) -> None:
+        if symbol in self.positions:
+            return
         size1 = round(size * tp1_size_frac, 8)
         size2 = round(size - size1, 8)
-        self.position = {
+        self.positions[symbol] = {
             "trade_id": f"paper-v2-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:6]}",
             "symbol": symbol,
             "entry": entry,
@@ -64,54 +75,53 @@ class PaperEngineV2:
 
     # ── Per-tick update ───────────────────────────────────────────────────────
 
-    def on_price(self, price: float) -> list[dict]:
+    def on_price(self, symbol: str, price: float) -> list[dict]:
         """
         Call on every tick with current price.
         Returns list of closed trade records (empty until something closes).
         """
-        if self.position is None:
+        pos = self.positions.get(symbol)
+        if pos is None:
             return []
-
-        pos = self.position
         age_minutes = (time.time() - pos["opened_at"]) / 60.0
         closed: list[dict] = []
 
         # ── TP1 partial exit ─────────────────────────────────────────────────
         if not pos["tp1_hit"] and price >= pos["tp1"]:
-            trade = self._partial_exit(pos["tp1"], pos["size1"], "TP1")
+            trade = self._partial_exit(pos, pos["tp1"], pos["size1"], "TP1")
             closed.append(trade)
             pos["tp1_hit"] = True
             # Move stop to breakeven (entry + estimated fee buffer ~2bps)
             pos["stop"] = pos["entry"] * 1.0002
             if pos["size2"] <= 0:
-                self.position = None
+                self.positions.pop(symbol, None)
                 return closed
 
-        if self.position is None:
+        if symbol not in self.positions:
             return closed
 
         # ── Stop hit ─────────────────────────────────────────────────────────
         if price <= pos["stop"]:
             remaining_size = pos["size2"] if pos["tp1_hit"] else pos["size_total"]
             reason = "SL_BREAKEVEN" if pos["tp1_hit"] else "SL"
-            trade = self._full_exit(pos["stop"], remaining_size, reason)
+            trade = self._full_exit(pos, pos["stop"], remaining_size, reason)
             closed.append(trade)
-            self.position = None
+            self.positions.pop(symbol, None)
             return closed
 
         # ── TP2 full exit ─────────────────────────────────────────────────────
         if pos["tp1_hit"] and price >= pos["tp2"]:
-            trade = self._full_exit(pos["tp2"], pos["size2"], "TP2")
+            trade = self._full_exit(pos, pos["tp2"], pos["size2"], "TP2")
             closed.append(trade)
-            self.position = None
+            self.positions.pop(symbol, None)
             return closed
 
         # ── Hard time stop ────────────────────────────────────────────────────
         if age_minutes >= pos["time_stop_minutes"]:
             remaining_size = pos["size2"] if pos["tp1_hit"] else pos["size_total"]
-            trade = self._full_exit(price, remaining_size, "TIME_STOP")
+            trade = self._full_exit(pos, price, remaining_size, "TIME_STOP")
             closed.append(trade)
-            self.position = None
+            self.positions.pop(symbol, None)
             return closed
 
         # ── Fast-reduce: partial exit if PnL is marginal at fast_reduce_minutes
@@ -123,7 +133,7 @@ class PaperEngineV2:
             if -0.10 <= unrealized_pct <= 0.20:  # marginal zone
                 half = round(pos["size_total"] * 0.50, 8)
                 if half > 0:
-                    trade = self._partial_exit(price, half, "FAST_REDUCE")
+                    trade = self._partial_exit(pos, price, half, "FAST_REDUCE")
                     closed.append(trade)
                     pos["size1"] = 0
                     pos["size2"] = round(pos["size_total"] - half, 8)
@@ -132,43 +142,41 @@ class PaperEngineV2:
 
         return closed
 
-    def position_age_minutes(self) -> float:
-        if self.position is None:
+    def position_age_minutes(self, symbol: Optional[str] = None) -> float:
+        pos = self.positions.get(symbol) if symbol else self.position
+        if pos is None:
             return 0.0
-        return (time.time() - self.position["opened_at"]) / 60.0
+        return (time.time() - pos["opened_at"]) / 60.0
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
-    def _partial_exit(self, price: float, size: float, reason: str) -> dict:
-        assert self.position is not None
-        pnl = (price - self.position["entry"]) * size
+    def _partial_exit(self, pos: dict, price: float, size: float, reason: str) -> dict:
+        pnl = (price - pos["entry"]) * size
         self.balance += pnl
-        pnl_pct = (price - self.position["entry"]) / self.position["entry"] * 100.0
-        trade = self._trade_record(self.position["symbol"], self.position["entry"], price, size, reason, pnl, pnl_pct)
+        pnl_pct = (price - pos["entry"]) / pos["entry"] * 100.0
+        trade = self._trade_record(pos, pos["symbol"], pos["entry"], price, size, reason, pnl, pnl_pct)
         print(f"[PARTIAL] {reason}  price={price:.4f}  size={size:.6f}  pnl={pnl:+.2f}  bal={self.balance:.2f}")
         self.trades.append(trade)
         return trade
 
-    def _full_exit(self, price: float, size: float, reason: str) -> dict:
-        assert self.position is not None
-        pnl = (price - self.position["entry"]) * size
+    def _full_exit(self, pos: dict, price: float, size: float, reason: str) -> dict:
+        pnl = (price - pos["entry"]) * size
         self.balance += pnl
-        pnl_pct = (price - self.position["entry"]) / self.position["entry"] * 100.0
-        trade = self._trade_record(self.position["symbol"], self.position["entry"], price, size, reason, pnl, pnl_pct)
+        pnl_pct = (price - pos["entry"]) / pos["entry"] * 100.0
+        trade = self._trade_record(pos, pos["symbol"], pos["entry"], price, size, reason, pnl, pnl_pct)
         print(f"[EXIT-v2] {reason}  price={price:.4f}  size={size:.6f}  pnl={pnl:+.2f}  bal={self.balance:.2f}")
         self.trades.append(trade)
         return trade
 
     def _trade_record(
         self,
+        pos: dict,
         symbol: str,
         entry: float,
         exit_price: float,
         size: float,
         reason: str, pnl: float, pnl_pct: float,
     ) -> dict:
-        pos = self.position
-        assert pos is not None
         pos["leg_index"] += 1
         leg = pos["leg_index"]
         return {

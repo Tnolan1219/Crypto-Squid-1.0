@@ -11,8 +11,8 @@
 
 ## Position limits
 
-- Maximum one open position at a time
-- Maximum 2 filled trades per day
+- Maximum one open position per symbol at a time
+- Maximum 6 filled trades per day
 - Maximum 4 signals evaluated per symbol per day
 
 ## Loss controls
@@ -23,7 +23,7 @@
 
 ## Risk per trade
 
-- Stop-aware sizing: `size = (equity × 0.35%) / stop_distance`
+- Stop-aware sizing: `size = (equity × 1.00%) / stop_distance`
 - Maximum gross exposure: BTC 20% of equity, ETH 15% of equity
 
 ## Entry discipline

@@ -60,8 +60,8 @@ ETH_V2 = SymbolParamsV2(
 @dataclass(frozen=True)
 class V2Params:
     # ── RISK (Layer 1) ────────────────────────────────────────────────────────
-    risk_per_trade_pct: float = 0.35            # tighter than v1 (was 0.50)
-    max_trades_per_day: int = 2                 # tighter than v1 (was 3)
+    risk_per_trade_pct: float = 1.00            # increased for expanded paper validation
+    max_trades_per_day: int = 6                 # less restrictive daily cap
     max_signals_evaluated_per_asset: int = 4    # cap signal evaluations per symbol/day
     max_consecutive_losses: int = 2
     daily_loss_limit_pct: float = 1.0           # tighter than v1 (was 2.0)

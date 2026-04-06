@@ -117,25 +117,26 @@ def _build_runtime_state(
         ) if engine.start_balance else 0.0,
     }
 
-    position = None
-    if engine.position:
-        pos = engine.position
+    active_positions = []
+    for pos in engine.positions.values():
         symbol = pos["symbol"]
         bars, bid, ask, current_price, _ = bars_builder.snapshot(symbol)
         unreal = (current_price - pos["entry"]) * (
             pos["size_total"] if not pos["tp1_hit"] else pos["size2"]
         )
-        position = {
+        active_positions.append({
             **pos,
             "size": pos.get("size2") if pos.get("tp1_hit") else pos.get("size_total"),
             "tp": pos.get("tp2"),
             "mark_price": current_price,
-            "age_minutes": engine.position_age_minutes(),
+            "age_minutes": engine.position_age_minutes(symbol),
             "current_price": current_price,
             "unrealized_pnl": round(unreal, 4),
-        }
+        })
 
-    unrealized_pnl = position.get("unrealized_pnl", 0.0) if position else 0.0
+    position = active_positions[0] if active_positions else None
+
+    unrealized_pnl = round(sum(p.get("unrealized_pnl", 0.0) for p in active_positions), 4)
     total_pnl = account["realized_pnl"] + unrealized_pnl
     account["unrealized_pnl"] = round(unrealized_pnl, 4)
     account["total_pnl"] = round(total_pnl, 4)
@@ -155,6 +156,7 @@ def _build_runtime_state(
         "account": account,
         "position": position,
         "active_position": position,
+        "positions": active_positions,
         "symbols": symbols,
         "stats": stats,
         "trades": engine.trades[-50:],
@@ -284,10 +286,11 @@ def main() -> None:
                     continue
 
                 # ── Check exits on open position ──────────────────────────────
-                if paper_engine.position and paper_engine.position.get("symbol") == symbol:
-                    closed = paper_engine.on_price(current_price)
+                if paper_engine.has_open_position(symbol):
+                    closed = paper_engine.on_price(symbol, current_price)
                     for trade in closed:
-                        signal_engine.register_trade_close(trade["pnl"])
+                        if trade.get("reason") in {"SL", "SL_BREAKEVEN", "TP2", "TIME_STOP"}:
+                            signal_engine.register_trade_close(trade["pnl"])
                         trade_history.write_trade(trade, strategy_version=strategy_version)
                         log.info(
                             "trade.closed",
@@ -299,7 +302,7 @@ def main() -> None:
                         )
 
                 # ── Check entry signal ─────────────────────────────────────────
-                if paper_engine.position is None:
+                if not paper_engine.has_open_position(symbol):
                     signal = signal_engine.check(
                         symbol=symbol,
                         bars=bars,
@@ -310,8 +313,12 @@ def main() -> None:
                     )
                     if signal:
                         sp = PARAMS.for_symbol(symbol)
-                        size = position_size(paper_engine.balance, signal.entry_limit, signal.stop)
-                        # Cap exposure
+                        size = position_size(
+                            paper_engine.balance,
+                            signal.entry_limit,
+                            signal.stop,
+                            risk_per_trade_pct=PARAMS.risk_per_trade_pct,
+                        )
                         max_exp_pct = (
                             PARAMS.max_gross_exposure_btc_pct
                             if symbol == "BTC-USD"

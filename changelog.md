@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-04 - VPS Runtime Attach Layer
+- Added modular runtime orchestration under `core/` with `Engine`, `StrategyManager`, `ExecutionRouter`, and Supabase control polling
+- Added strategy adapter `strategies/coinbase_v2_strategy.py` that runs existing v2 logic without strategy rule changes
+- Added one-command entrypoint `scripts/run_all.py` for VPS process management
+- Added Supabase SQL bootstrap `ops/supabase/strategy_control.sql` for remote enable/mode/max-position control
+- Added NOAA integration client scaffold at `integrations/noaa_client.py`
+- Added repository `README.md` for local run, paper/live switching, stop procedure, and architecture overview
+- Updated `.env.example` and `requirements.txt` for Supabase and VPS control dependencies
+
 ## 2026-04-01 - Local Monitoring Dashboard
 - Added localhost dashboard server at `src/dashboard.py` with `GET /api/state`
 - Added real-time frontend at `src/dashboard.html` for P/L, position, symbol metrics, and charts

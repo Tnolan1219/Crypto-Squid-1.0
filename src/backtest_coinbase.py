@@ -134,7 +134,12 @@ def _gate_report(stats: dict, min_trades: int, max_drawdown_pct: float) -> dict:
     return gates
 
 
-def _run(symbols: list[str], candles_by_symbol: dict[str, list[dict]], start_balance: float) -> tuple[PaperEngine, list[dict]]:
+def _run(
+    symbols: list[str],
+    candles_by_symbol: dict[str, list[dict]],
+    start_balance: float,
+    time_stop_breakeven_floor: bool = False,
+) -> tuple[PaperEngine, list[dict]]:
     trackers = {symbol: MarketTracker() for symbol in symbols}
     last_price = {symbol: None for symbol in symbols}
     events = []
@@ -166,7 +171,10 @@ def _run(symbols: list[str], candles_by_symbol: dict[str, list[dict]], start_bal
             opened_ts = int(engine.position.get("opened_at_candle_ts", ts))
             age_minutes = (ts - opened_ts) / 60.0
             if age_minutes >= MAX_HOLD_MINUTES:
-                closed = engine.exit(price, "TIME_STOP", exit_ts=float(ts), exit_iso=_iso(ts))
+                exit_price = price
+                if time_stop_breakeven_floor:
+                    exit_price = max(price, float(engine.position["entry"]))
+                closed = engine.exit(exit_price, "TIME_STOP", exit_ts=float(ts), exit_iso=_iso(ts))
                 risk_engine.register_trade_close(float(closed.get("pnl", 0.0)))
                 active_symbol = None
             elif price <= engine.position["stop"]:
@@ -261,25 +269,39 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Backtest Crypto Squid using Coinbase public candles.")
     parser.add_argument("--symbols", default="BTC-USD,ETH-USD", help="Comma separated product ids.")
     parser.add_argument("--days", type=float, default=3.0, help="How many days to backtest from now.")
+    parser.add_argument("--end-ts", type=int, default=None, help="Optional UTC end timestamp (seconds).")
+    parser.add_argument("--start-ts", type=int, default=None, help="Optional UTC start timestamp (seconds).")
     parser.add_argument("--granularity", default="ONE_MINUTE", choices=sorted(GRANULARITY_TO_SECONDS.keys()))
     parser.add_argument("--start-balance", type=float, default=1000.0)
     parser.add_argument("--leverage-factor", type=float, default=1.0)
     parser.add_argument("--min-trades", type=int, default=20)
     parser.add_argument("--max-drawdown-pct", type=float, default=2.0)
+    parser.add_argument(
+        "--time-stop-breakeven-floor",
+        action="store_true",
+        help="At TIME_STOP, floor exit to entry price (no losing time-stop exits).",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     root = Path(__file__).parent.parent
-    end_ts = int(_utc_now().timestamp())
-    start_ts = end_ts - int(args.days * 86400)
+    end_ts = int(args.end_ts) if args.end_ts is not None else int(_utc_now().timestamp())
+    start_ts = int(args.start_ts) if args.start_ts is not None else end_ts - int(args.days * 86400)
+    if start_ts >= end_ts:
+        raise ValueError("start-ts must be earlier than end-ts")
     symbols = _parse_symbols(args.symbols)
 
     client = RESTClient()
     candles_by_symbol = {symbol: _fetch_candles(client, symbol, start_ts, end_ts, args.granularity) for symbol in symbols}
     leverage_factor = max(float(args.leverage_factor), 1.0)
-    engine, equity_curve = _run(symbols, candles_by_symbol, args.start_balance)
+    engine, equity_curve = _run(
+        symbols,
+        candles_by_symbol,
+        args.start_balance,
+        time_stop_breakeven_floor=bool(args.time_stop_breakeven_floor),
+    )
     stats = _stats(engine, args.start_balance, equity_curve, leverage_factor)
     gates = _gate_report(stats, min_trades=args.min_trades, max_drawdown_pct=args.max_drawdown_pct)
 

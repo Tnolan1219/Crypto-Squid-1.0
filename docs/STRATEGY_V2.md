@@ -44,7 +44,7 @@ All conditions must be true before evaluating any setup:
 
 | Check | Value |
 |---|---|
-| Max trades per day | 2 |
+| Max trades per day | 6 |
 | Max consecutive losses | 2 |
 | Max signals evaluated per symbol per day | 4 |
 | Daily loss limit | 1.0% of equity |
@@ -124,7 +124,7 @@ Stop price = tighter of:
 ### Sizing
 
 ```
-risk_budget = equity × 0.35%
+risk_budget = equity × 1.00%
 stop_distance = entry - stop
 size = risk_budget / stop_distance
 ```
@@ -164,8 +164,8 @@ These cannot be changed without explicit user approval:
 
 - Long-only
 - No market orders — limit only
-- One position at a time
-- Max 2 trades/day
+- One position per symbol at a time
+- Max 6 trades/day
 - Max 2 consecutive losses
 - Max 1% daily drawdown
 - `TRADING_ENABLED=false` halts all new entries immediately

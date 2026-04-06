@@ -77,8 +77,8 @@
 
 | Parameter | Value | Notes |
 |---|---:|---|
-| `risk_per_trade_pct` | 0.35% | Risk budget per trade (was 0.50% in v1 — deliberately conservative for unproven strategy) |
-| `max_trades_per_day` | 2 | Daily fill cap |
+| `risk_per_trade_pct` | 1.00% | Risk budget per trade |
+| `max_trades_per_day` | 6 | Daily fill cap |
 | `max_signals_evaluated_per_asset` | 4 | Daily signal eval cap per symbol |
 | `max_consecutive_losses` | 2 | Stop for the day after 2 losses in a row |
 | `daily_loss_limit_pct` | 1.0% | Realized drawdown cap for the day |

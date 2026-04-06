@@ -40,6 +40,10 @@ def _leverage_factor_from_env() -> float:
     return max(value, 1.0)
 
 
+def _time_stop_breakeven_floor_from_env() -> bool:
+    return _as_bool(os.getenv("TIME_STOP_BREAKEVEN_FLOOR", "false"), default=False)
+
+
 def _stats_from_trades(trades: list[dict]) -> dict:
     wins = sum(1 for trade in trades if trade.get("pnl", 0.0) > 0)
     losses = sum(1 for trade in trades if trade.get("pnl", 0.0) < 0)
@@ -133,6 +137,7 @@ trade_history = TradeHistoryStore(ROOT)
 trade_history.sync_existing()
 mode = _mode_from_env()
 leverage_factor = _leverage_factor_from_env()
+time_stop_breakeven_floor = _time_stop_breakeven_floor_from_env()
 started_at = datetime.now(timezone.utc).isoformat()
 strategy_version = os.getenv("STRATEGY_VERSION", "coinbase-paper-v1")
 
@@ -142,6 +147,7 @@ active_symbol = None
 print("=== CRYPTO SQUID — PAPER MODE ===")
 print(f"Symbols: {SYMBOLS}")
 print(f"Balance: {engine.balance:.2f}")
+print(f"TIME_STOP_BREAKEVEN_FLOOR: {time_stop_breakeven_floor}")
 print("Watching for panic flush signals...\n")
 
 while True:
@@ -160,7 +166,8 @@ while True:
             # --- Exit logic ---
             if engine.position and active_symbol == symbol:
                 if engine.position_age_minutes() >= MAX_HOLD_MINUTES:
-                    trade = engine.exit(price, "TIME_STOP")
+                    exit_price = max(price, float(engine.position["entry"])) if time_stop_breakeven_floor else price
+                    trade = engine.exit(exit_price, "TIME_STOP")
                     if trade:
                         trade_history.write_trade(trade, strategy_version=strategy_version)
                     active_symbol = None
