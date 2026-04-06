@@ -157,6 +157,22 @@ class CoinbaseV2Strategy(Strategy):
     def current_pnl(self) -> float:
         return self._paper_engine.balance - self._paper_engine.start_balance
 
+    def _compute_stats(self) -> dict:
+        trades = self._paper_engine.trades
+        total = len(trades)
+        wins = sum(1 for t in trades if t.get("pnl", 0.0) > 0)
+        gross_profit = sum(t["pnl"] for t in trades if t.get("pnl", 0.0) > 0)
+        gross_loss = abs(sum(t["pnl"] for t in trades if t.get("pnl", 0.0) < 0))
+        realized = self._paper_engine.balance - self._paper_engine.start_balance
+        return {
+            "trades_closed": total,
+            "wins": wins,
+            "losses": total - wins,
+            "win_rate_pct": round(wins / total * 100.0, 2) if total else 0.0,
+            "expectancy_usd_per_trade": round(realized / total, 4) if total else 0.0,
+            "profit_factor": round(gross_profit / gross_loss, 4) if gross_loss > 0 else (999.0 if gross_profit > 0 else 0.0),
+        }
+
     def _max_size_for_symbol(self, symbol: str, entry_limit: float) -> float:
         max_exp_pct = (
             DEFAULT_V2_PARAMS.max_gross_exposure_btc_pct
@@ -200,8 +216,6 @@ class CoinbaseV2Strategy(Strategy):
             "positions": list(self._paper_engine.positions.values()),
             "symbols": symbols,
             "trades": self._paper_engine.trades[-50:],
-            "stats": {
-                "trades_closed": len(self._paper_engine.trades),
-            },
+            "stats": self._compute_stats(),
         }
         self._runtime_store.write(payload)

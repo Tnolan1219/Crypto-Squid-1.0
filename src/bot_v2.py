@@ -277,6 +277,10 @@ def main() -> None:
     print("WebSocket connected. Warming up (30 sec)...\n")
     time.sleep(30)  # allow bar history to accumulate before signal checks begin
 
+    # ── Staleness tracking — detect WS disconnect ──────────────────────────────
+    _last_bar_ts: dict[str, int] = {}
+    WS_STALE_SECONDS = 5.0  # flatten open position if no new bar data for this long
+
     try:
         while True:
             for symbol in SYMBOLS:
@@ -284,6 +288,23 @@ def main() -> None:
 
                 if not bars:
                     continue
+
+                # ── Track bar freshness (detect WebSocket disconnect) ──────────
+                latest_ts = bars[-1].ts
+                if symbol not in _last_bar_ts or latest_ts > _last_bar_ts[symbol]:
+                    _last_bar_ts[symbol] = latest_ts
+                data_age = time.time() - _last_bar_ts.get(symbol, time.time())
+                data_stale = data_age > WS_STALE_SECONDS
+
+                # ── Disconnect flatten: core rule — WS disconnect > 5s during open position
+                if data_stale and paper_engine.has_open_position(symbol):
+                    log.error("ws.stale_flatten", symbol=symbol, age_seconds=f"{data_age:.1f}")
+                    trades = paper_engine.force_close(symbol, current_price, "WS_DISCONNECT")
+                    for trade in trades:
+                        signal_engine.register_trade_close(trade["pnl"])
+                        trade_history.write_trade(trade, strategy_version=strategy_version)
+                        print(f"[WS-DISCONNECT] Force-closed {symbol}  pnl={trade['pnl']:+.2f}")
+                    continue  # skip normal exit/entry logic while stale
 
                 # ── Check exits on open position ──────────────────────────────
                 if paper_engine.has_open_position(symbol):
@@ -300,6 +321,14 @@ def main() -> None:
                             pnl_pct=trade["pnl_pct"],
                             balance=paper_engine.balance,
                         )
+
+                # ── Kill switch: TRADING_ENABLED=false halts all new entries ──
+                if not mode["trading_enabled"]:
+                    continue
+
+                # ── Block entries when market data is stale ────────────────────
+                if data_stale:
+                    continue
 
                 # ── Check entry signal ─────────────────────────────────────────
                 if not paper_engine.has_open_position(symbol):
@@ -343,6 +372,7 @@ def main() -> None:
             # ── Status print every ~10 seconds ────────────────────────────────
             if int(time.time()) % 10 == 0:
                 event_count = event_collector.count()
+                kill = "" if mode["trading_enabled"] else "  [KILL-SWITCH]"
                 for symbol in SYMBOLS:
                     bars, bid, ask, price, _ = bar_builder.snapshot(symbol)
                     if bars:
@@ -350,10 +380,12 @@ def main() -> None:
                         z = BarBuilder.zscore(bars)
                         vol = BarBuilder.volume_ratio(bars)
                         spread = BarBuilder.current_spread_bps(bid, ask)
+                        age = time.time() - _last_bar_ts.get(symbol, time.time())
+                        stale_tag = f"  [STALE {age:.0f}s]" if age > WS_STALE_SECONDS else ""
                         print(
                             f"{symbol}  {price:.2f}  drop={drop:+.3f}%  z={z:.2f}"
                             f"  vol={vol:.2f}x  spread={spread:.1f}bps"
-                            f"  events={event_count}",
+                            f"  events={event_count}{stale_tag}{kill}",
                             flush=True,
                         )
 

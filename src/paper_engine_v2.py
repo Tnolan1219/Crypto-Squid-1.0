@@ -142,6 +142,16 @@ class PaperEngineV2:
 
         return closed
 
+    def force_close(self, symbol: str, price: float, reason: str) -> list[dict]:
+        """Emergency flatten — closes all remaining size at given price regardless of levels."""
+        pos = self.positions.get(symbol)
+        if pos is None:
+            return []
+        remaining_size = pos["size2"] if pos["tp1_hit"] else pos["size_total"]
+        trade = self._full_exit(pos, price, remaining_size, reason)
+        self.positions.pop(symbol, None)
+        return [trade]
+
     def position_age_minutes(self, symbol: Optional[str] = None) -> float:
         pos = self.positions.get(symbol) if symbol else self.position
         if pos is None:

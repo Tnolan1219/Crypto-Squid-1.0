@@ -1,6 +1,6 @@
 # Crypto Squid Lessons
 
-- Last update: 2026-04-05T21:18:27.751188+00:00
+- Last update: 2026-04-06T21:02:57.568147+00:00
 - Sample size (most recent trades): 0
 - Wins: 0
 - Losses: 0
