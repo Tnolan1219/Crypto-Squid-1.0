@@ -69,12 +69,18 @@ class SignalEngineV2:
         self._daily_trades: int = 0
         self._consecutive_losses: int = 0
         self._day: date = date.today()
+        # Daily loss limit tracking
+        self._daily_realized_pnl: float = 0.0
+        self._last_equity: float = 0.0
+        # Spread rejection counter (per symbol, reset on new tick data)
+        self._spread_reject_count: dict[str, int] = {}
 
     # ── External state updates ────────────────────────────────────────────────
 
     def register_trade_close(self, pnl: float) -> None:
         self._roll_day()
         self._daily_trades += 1
+        self._daily_realized_pnl += pnl
         self._consecutive_losses = 0 if pnl >= 0 else self._consecutive_losses + 1
 
     # ── Main entry point ─────────────────────────────────────────────────────
@@ -93,6 +99,7 @@ class SignalEngineV2:
         Returns SignalResult if all conditions are met, else None.
         """
         self._roll_day()
+        self._last_equity = account_equity
         state = self._states.setdefault(symbol, _SymbolState())
         params = self.params.for_symbol(symbol)
 
@@ -305,9 +312,24 @@ class SignalEngineV2:
         if self._daily_evaluated.get(symbol, 0) >= self.params.max_signals_evaluated_per_asset:
             return False
 
-        # Unknown spread (no L2 data yet) → allow through with warning
+        # Daily loss limit (Layer 1)
+        if self._daily_realized_pnl < 0 and self._last_equity > 0:
+            loss_pct = -self._daily_realized_pnl / self._last_equity * 100.0
+            if loss_pct >= self.params.daily_loss_limit_pct:
+                log.warning("signal.daily_loss_limit", loss_pct=f"{loss_pct:.3f}")
+                return False
+
+        # Spread check + consecutive rejection counter
         if spread_bps < 999 and spread_bps > params.max_spread_bps:
+            count = self._spread_reject_count.get(symbol, 0) + 1
+            self._spread_reject_count[symbol] = count
+            if count >= self.params.max_rejected_fills_in_row:
+                log.warning("signal.spread_halt", symbol=symbol, count=count)
+                # Force evaluated cap to block further entries for the day
+                self._daily_evaluated[symbol] = self.params.max_signals_evaluated_per_asset
             return False
+        else:
+            self._spread_reject_count[symbol] = 0
 
         # Liquidity: 60-second volume >= 35th percentile of 30-minute distribution
         vol_35 = BarBuilder.volume_percentile(bars)
@@ -337,3 +359,5 @@ class SignalEngineV2:
             self._daily_evaluated.clear()
             self._daily_trades = 0
             self._consecutive_losses = 0
+            self._daily_realized_pnl = 0.0
+            self._spread_reject_count.clear()
