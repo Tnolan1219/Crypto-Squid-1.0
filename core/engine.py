@@ -28,12 +28,18 @@ class Engine:
 
     def _register_strategies(self) -> None:
         if "coinbase_v2" in self.settings.enabled_strategies:
+            mode = "paper"
+            if self.settings.enable_live_trading and not self.settings.paper_mode:
+                mode = "live"
             strategy = CoinbaseV2Strategy(
                 config={
-                    "mode": "paper",
+                    "mode": mode,
                     "max_position": self.settings.max_position_default,
                     "warmup_seconds": self.settings.warmup_seconds,
                     "account_capital_usd": self.settings.account_capital_usd,
+                    "risk_per_trade_pct": self.settings.risk_per_trade_pct,
+                    "stale_feed_seconds": self.settings.stale_feed_seconds,
+                    "stop_limit_offset_bps": self.settings.stop_limit_offset_bps,
                 },
                 execution_router=self.execution_router,
                 root=self.root,

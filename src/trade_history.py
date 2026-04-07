@@ -110,7 +110,7 @@ class TradeHistoryStore:
                     trade.get("pnl"),
                     hold_seconds,
                     trade.get("reason"),
-                    "paper",
+                    trade.get("mode", "paper"),
                     strategy_version,
                     trade.get("status", "CLOSED"),
                     self._build_note(trade),

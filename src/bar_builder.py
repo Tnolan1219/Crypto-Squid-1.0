@@ -36,11 +36,13 @@ class SymbolBars:
         self._current: Optional[dict] = None
         self.best_bid: float = 0.0
         self.best_ask: float = 0.0
+        self.last_trade_ts: float = 0.0
         # Spread history for median calculation (one entry per bar)
         self._spread_bps_history: deque[float] = deque(maxlen=self.MAX_BARS)
 
     def feed(self, price: float, size: float, side: str, ts: Optional[float] = None) -> Optional[Bar]:
         now = int(ts or time.time())
+        self.last_trade_ts = float(ts or time.time())
         dollar = price * size
 
         if self._current is None:
@@ -120,13 +122,17 @@ class BarBuilder:
 
     # ── Snapshot for signal checks (releases lock immediately) ────────────────
 
-    def snapshot(self, symbol: str) -> tuple[list[Bar], float, float, float, list[float]]:
-        """Returns (bars[-1800:], best_bid, best_ask, current_price, spread_history) under lock."""
+    def snapshot(self, symbol: str) -> tuple[list[Bar], float, float, float, list[float], float]:
+        """Returns (bars[-1800:], best_bid, best_ask, current_price, spread_history, last_trade_ts) under lock."""
         with self._lock:
             sb = self._get(symbol)
             bars = list(sb.bars)
             spread_hist = list(sb._spread_bps_history)
-            return bars, sb.best_bid, sb.best_ask, sb.current_price(), spread_hist
+            return bars, sb.best_bid, sb.best_ask, sb.current_price(), spread_hist, sb.last_trade_ts
+
+    def last_trade_ts(self, symbol: str) -> float:
+        with self._lock:
+            return self._get(symbol).last_trade_ts
 
     # ── Stat helpers (operate on data already copied out of lock) ─────────────
 

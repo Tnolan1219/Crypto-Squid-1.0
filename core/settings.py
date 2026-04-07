@@ -21,12 +21,17 @@ def _as_bool(value: str | None, default: bool = False) -> bool:
 class RuntimeSettings:
     env: str
     trading_enabled: bool
+    paper_mode: bool
+    enable_live_trading: bool
     loop_seconds: float
     control_poll_seconds: float
     warmup_seconds: float
     account_capital_usd: float
+    risk_per_trade_pct: float
     max_daily_loss_usd: float
     max_position_default: float
+    stale_feed_seconds: float
+    stop_limit_offset_bps: float
     enabled_strategies: tuple[str, ...]
     supabase_url: str
     supabase_key: str
@@ -41,12 +46,17 @@ def load_settings() -> RuntimeSettings:
     return RuntimeSettings(
         env=os.getenv("ENV", "production"),
         trading_enabled=_as_bool(os.getenv("TRADING_ENABLED", "true"), default=True),
+        paper_mode=_as_bool(os.getenv("PAPER_MODE", "true"), default=True),
+        enable_live_trading=_as_bool(os.getenv("ENABLE_LIVE_TRADING", "false"), default=False),
         loop_seconds=float(os.getenv("GLOBAL_LOOP_SECONDS", "2.0")),
         control_poll_seconds=float(os.getenv("CONTROL_POLL_SECONDS", "3.0")),
         warmup_seconds=float(os.getenv("STRATEGY_WARMUP_SECONDS", "30")),
         account_capital_usd=float(os.getenv("ACCOUNT_CAPITAL_USD", "1000")),
+        risk_per_trade_pct=float(os.getenv("RISK_PER_TRADE_PCT", "0.50")),
         max_daily_loss_usd=float(os.getenv("MAX_DAILY_LOSS_USD", "50")),
         max_position_default=float(os.getenv("MAX_POSITION_DEFAULT", "0.20")),
+        stale_feed_seconds=float(os.getenv("LIVE_STALE_FEED_SECONDS", "20")),
+        stop_limit_offset_bps=float(os.getenv("STOP_LIMIT_OFFSET_BPS", "5")),
         enabled_strategies=enabled if enabled else ("coinbase_v2",),
         supabase_url=os.getenv("SUPABASE_URL", "").strip(),
         supabase_key=os.getenv("SUPABASE_KEY", "").strip(),

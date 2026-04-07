@@ -95,7 +95,7 @@ def _build_runtime_state(
 ) -> dict:
     symbols = {}
     for symbol in SYMBOLS:
-        bars, bid, ask, current_price, _ = bars_builder.snapshot(symbol)
+        bars, bid, ask, current_price, _, _ = bars_builder.snapshot(symbol)
         history = [
             {"ts": datetime.fromtimestamp(b.ts, tz=timezone.utc).isoformat(), "price": b.close}
             for b in bars[-180:]
@@ -120,7 +120,7 @@ def _build_runtime_state(
     active_positions = []
     for pos in engine.positions.values():
         symbol = pos["symbol"]
-        bars, bid, ask, current_price, _ = bars_builder.snapshot(symbol)
+        bars, bid, ask, current_price, _, _ = bars_builder.snapshot(symbol)
         unreal = (current_price - pos["entry"]) * (
             pos["size_total"] if not pos["tp1_hit"] else pos["size2"]
         )
@@ -280,7 +280,7 @@ def main() -> None:
     try:
         while True:
             for symbol in SYMBOLS:
-                bars, bid, ask, current_price, spread_hist = bar_builder.snapshot(symbol)
+                bars, bid, ask, current_price, spread_hist, _ = bar_builder.snapshot(symbol)
 
                 if not bars:
                     continue
@@ -344,7 +344,7 @@ def main() -> None:
             if int(time.time()) % 10 == 0:
                 event_count = event_collector.count()
                 for symbol in SYMBOLS:
-                    bars, bid, ask, price, _ = bar_builder.snapshot(symbol)
+                    bars, bid, ask, price, _, _ = bar_builder.snapshot(symbol)
                     if bars:
                         drop = BarBuilder.return_pct(bars, 180)
                         z = BarBuilder.zscore(bars)

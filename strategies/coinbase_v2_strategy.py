@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -14,7 +15,9 @@ if str(SRC) not in sys.path:
 
 from bar_builder import BarBuilder
 from coinbase_ws import CoinbaseWS
+from coinbase_live import CoinbaseLiveClient
 from event_collector import EventCollector
+from live_engine_v2 import LiveExecutionEngineV2
 from paper_engine_v2 import PaperEngineV2
 from params_v2 import DEFAULT_V2_PARAMS
 from risk import position_size
@@ -39,14 +42,32 @@ class CoinbaseV2Strategy(Strategy):
         self._events = EventCollector(root)
         self._signal_engine = SignalEngineV2(DEFAULT_V2_PARAMS, self._events)
         self._paper_engine = PaperEngineV2(balance=float(config.get("account_capital_usd", 1000.0)))
+        self._live_engine: LiveExecutionEngineV2 | None = None
+        self._market_data_healthy = True
         self._runtime_store = RuntimeStore(root)
         self._trade_history = TradeHistoryStore(root)
         self._trade_history.sync_existing()
         self._latest_snapshots: dict[str, tuple] = {}
         self._started = False
         self._started_at = datetime.now(timezone.utc).isoformat()
-        self._strategy_version = "coinbase-v2-paper"
+        self._strategy_version = "coinbase-v2-live" if self._mode() == "live" else "coinbase-v2-paper"
         self._last_start_attempt = 0.0
+        self._stale_feed_seconds = float(config.get("stale_feed_seconds", 20))
+
+        if self._mode() == "live":
+            api_key = os.getenv("COINBASE_API_KEY_NAME", "").strip()
+            api_secret = os.getenv("COINBASE_PRIVATE_KEY", "").strip()
+            client = CoinbaseLiveClient(api_key=api_key, api_secret=api_secret)
+            self._live_engine = LiveExecutionEngineV2(
+                client=client,
+                risk_per_trade_pct=float(config.get("risk_per_trade_pct", 0.50)),
+                max_trades_per_day=3,
+                max_consecutive_losses=2,
+                daily_loss_limit_pct=float(DEFAULT_V2_PARAMS.daily_loss_limit_pct),
+                account_capital_usd=float(config.get("account_capital_usd", 1000.0)),
+                entry_order_timeout_seconds=float(DEFAULT_V2_PARAMS.entry_order_lifetime_seconds),
+                stop_limit_offset_bps=float(config.get("stop_limit_offset_bps", 5)),
+            )
 
     def _ensure_started(self) -> None:
         if self._started:
@@ -66,13 +87,22 @@ class CoinbaseV2Strategy(Strategy):
         self._ensure_started()
         if not self._started:
             return
+        now = time.time()
+        stale = False
         for symbol in self.SYMBOLS:
-            self._latest_snapshots[symbol] = self._bar_builder.snapshot(symbol)
+            snapshot = self._bar_builder.snapshot(symbol)
+            self._latest_snapshots[symbol] = snapshot
+            last_trade_ts = snapshot[5]
+            if last_trade_ts <= 0 or (now - last_trade_ts) > self._stale_feed_seconds:
+                stale = True
+        self._market_data_healthy = not stale
 
     def generate_signals(self) -> list[dict]:
         actions: list[dict] = []
+        if not self._market_data_healthy:
+            return actions
         for symbol in self.SYMBOLS:
-            bars, bid, ask, _, spread_hist = self._latest_snapshots.get(symbol, ([], 0.0, 0.0, 0.0, []))
+            bars, bid, ask, _, spread_hist, _ = self._latest_snapshots.get(symbol, ([], 0.0, 0.0, 0.0, [], 0.0))
             if not bars:
                 continue
             signal = self._signal_engine.check(
@@ -89,29 +119,41 @@ class CoinbaseV2Strategy(Strategy):
 
     def execute(self, actions: list[dict]) -> None:
         for symbol in self.SYMBOLS:
-            bars, _, _, current_price, _ = self._latest_snapshots.get(symbol, ([], 0.0, 0.0, 0.0, []))
+            bars, _, _, current_price, _, _ = self._latest_snapshots.get(symbol, ([], 0.0, 0.0, 0.0, [], 0.0))
             if not bars:
                 continue
-            if self._paper_engine.has_open_position(symbol):
-                closed = self._paper_engine.on_price(symbol, current_price)
+            if self._mode() == "live" and self._live_engine:
+                closed = self._live_engine.on_price(symbol, current_price)
                 for trade in closed:
                     if trade.get("reason") in {"SL", "SL_BREAKEVEN", "TP2", "TIME_STOP"}:
                         self._signal_engine.register_trade_close(trade["pnl"])
                     self._trade_history.write_trade(trade, strategy_version=self._strategy_version)
+            else:
+                if self._paper_engine.has_open_position(symbol):
+                    closed = self._paper_engine.on_price(symbol, current_price)
+                    for trade in closed:
+                        if trade.get("reason") in {"SL", "SL_BREAKEVEN", "TP2", "TIME_STOP"}:
+                            self._signal_engine.register_trade_close(trade["pnl"])
+                        self._trade_history.write_trade(trade, strategy_version=self._strategy_version)
 
         for action in actions:
             if action.get("type") != "entry":
                 continue
             signal = action["signal"]
             symbol = action["symbol"]
-            if self._paper_engine.has_open_position(symbol):
+            if self._mode() == "live" and self._live_engine and self._live_engine.has_open_position(symbol):
+                continue
+            if self._mode() != "live" and self._paper_engine.has_open_position(symbol):
                 continue
             sp = DEFAULT_V2_PARAMS.for_symbol(symbol)
+            risk_pct = DEFAULT_V2_PARAMS.risk_per_trade_pct
+            if self._mode() == "live":
+                risk_pct = float(self.config.get("risk_per_trade_pct", 0.50))
             size = position_size(
-                self._paper_engine.balance,
+                float(self.config.get("account_capital_usd", self._paper_engine.balance)),
                 signal.entry_limit,
                 signal.stop,
-                risk_per_trade_pct=DEFAULT_V2_PARAMS.risk_per_trade_pct,
+                risk_per_trade_pct=risk_pct,
             )
             max_size = self._max_size_for_symbol(symbol, signal.entry_limit)
             size = min(size, max_size)
@@ -130,17 +172,32 @@ class CoinbaseV2Strategy(Strategy):
             )
             if not decision.accepted or decision.size <= 0:
                 continue
-            self._paper_engine.enter(
-                symbol=symbol,
-                entry=signal.entry_limit,
-                size=decision.size,
-                stop=signal.stop,
-                tp1=signal.tp1,
-                tp1_size_frac=sp.tp1_size_frac,
-                tp2=signal.tp2,
-                time_stop_minutes=sp.time_stop_minutes,
-                fast_reduce_minutes=sp.fast_reduce_minutes,
-            )
+            if self._mode() == "live" and self._live_engine:
+                self._live_engine.enter(
+                    symbol=symbol,
+                    entry=signal.entry_limit,
+                    size=decision.size,
+                    stop=signal.stop,
+                    tp1=signal.tp1,
+                    tp1_size_frac=sp.tp1_size_frac,
+                    tp2=signal.tp2,
+                    time_stop_minutes=sp.time_stop_minutes,
+                    fast_reduce_minutes=sp.fast_reduce_minutes,
+                    drop_pct=signal.drop_pct,
+                    zscore=signal.zscore,
+                )
+            else:
+                self._paper_engine.enter(
+                    symbol=symbol,
+                    entry=signal.entry_limit,
+                    size=decision.size,
+                    stop=signal.stop,
+                    tp1=signal.tp1,
+                    tp1_size_frac=sp.tp1_size_frac,
+                    tp2=signal.tp2,
+                    time_stop_minutes=sp.time_stop_minutes,
+                    fast_reduce_minutes=sp.fast_reduce_minutes,
+                )
         self._write_runtime_state()
 
     def manage_risk(self) -> None:
@@ -148,6 +205,8 @@ class CoinbaseV2Strategy(Strategy):
 
     def cancel_orders(self) -> None:
         self._router.cancel_all_orders("coinbase_v2")
+        if self._live_engine:
+            self._live_engine.cancel_all()
 
     def stop(self) -> None:
         if self._started:
@@ -155,6 +214,8 @@ class CoinbaseV2Strategy(Strategy):
             self._started = False
 
     def current_pnl(self) -> float:
+        if self._mode() == "live" and self._live_engine:
+            return self._live_engine.realized_pnl
         return self._paper_engine.balance - self._paper_engine.start_balance
 
     def _max_size_for_symbol(self, symbol: str, entry_limit: float) -> float:
@@ -163,12 +224,15 @@ class CoinbaseV2Strategy(Strategy):
             if symbol == "BTC-USD"
             else DEFAULT_V2_PARAMS.max_gross_exposure_eth_pct
         )
-        return (self._paper_engine.balance * max_exp_pct / 100.0) / max(entry_limit, 1e-9)
+        equity = float(self.config.get("account_capital_usd", self._paper_engine.balance))
+        return (equity * max_exp_pct / 100.0) / max(entry_limit, 1e-9)
 
     def _write_runtime_state(self) -> None:
         symbols = {}
         for symbol in self.SYMBOLS:
-            bars, bid, ask, current_price, _ = self._latest_snapshots.get(symbol, ([], 0.0, 0.0, 0.0, []))
+            bars, bid, ask, current_price, _, last_trade_ts = self._latest_snapshots.get(
+                symbol, ([], 0.0, 0.0, 0.0, [], 0.0)
+            )
             history = [
                 {"ts": datetime.fromtimestamp(b.ts, tz=timezone.utc).isoformat(), "price": b.close}
                 for b in bars[-180:]
@@ -178,8 +242,20 @@ class CoinbaseV2Strategy(Strategy):
                 "drop_pct": BarBuilder.return_pct(bars, 180),
                 "zscore": BarBuilder.zscore(bars),
                 "spread_bps": BarBuilder.current_spread_bps(bid, ask),
+                "last_trade_ts": last_trade_ts,
                 "history": history,
             }
+        account_start = self._paper_engine.start_balance
+        account_balance = self._paper_engine.balance
+        trades = self._paper_engine.trades[-50:]
+        positions = list(self._paper_engine.positions.values())
+        position = self._paper_engine.position
+        if self._mode() == "live" and self._live_engine:
+            account_start = float(self.config.get("account_capital_usd", 0.0))
+            account_balance = account_start + self._live_engine.realized_pnl
+            trades = self._live_engine.trades[-50:]
+            positions = list(self._live_engine.positions.values())
+            position = self._live_engine.position
         payload = {
             "status": "running",
             "started_at": self._started_at,
@@ -190,18 +266,25 @@ class CoinbaseV2Strategy(Strategy):
             },
             "version": "v2",
             "event_count": self._events.count(),
+            "heartbeat": {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "market_data_healthy": self._market_data_healthy,
+            },
             "account": {
-                "starting_balance": self._paper_engine.start_balance,
-                "balance": self._paper_engine.balance,
+                "starting_balance": account_start,
+                "balance": account_balance,
                 "realized_pnl": round(self.current_pnl(), 4),
             },
-            "position": self._paper_engine.position,
-            "active_position": self._paper_engine.position,
-            "positions": list(self._paper_engine.positions.values()),
+            "position": position,
+            "active_position": position,
+            "positions": positions,
             "symbols": symbols,
-            "trades": self._paper_engine.trades[-50:],
+            "trades": trades,
             "stats": {
-                "trades_closed": len(self._paper_engine.trades),
+                "trades_closed": len(trades),
             },
         }
         self._runtime_store.write(payload)
+
+    def _mode(self) -> str:
+        return str(self.config.get("mode", "paper"))

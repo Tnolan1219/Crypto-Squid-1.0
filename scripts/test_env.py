@@ -73,6 +73,39 @@ def check_coinbase_rest() -> bool:
         return False
 
 
+def check_coinbase_trading_preview() -> bool:
+    print("\n-- COINBASE TRADING PREVIEW ---------------------")
+    try:
+        from coinbase.rest import RESTClient
+
+        client = RESTClient(
+            api_key=os.getenv("COINBASE_API_KEY_NAME"),
+            api_secret=os.getenv("COINBASE_PRIVATE_KEY"),
+        )
+        product = client.get_product(product_id="BTC-USD")
+        price_raw = getattr(product, "price", None) or product.get("price", "0")
+        base_inc = getattr(product, "base_increment", None) or product.get("base_increment", "0.00000001")
+        price = float(price_raw)
+        preview = client.preview_limit_order_ioc(
+            product_id="BTC-USD",
+            side="BUY",
+            base_size=str(base_inc),
+            limit_price=f"{price:.2f}",
+        )
+        if getattr(preview, "errs", None):
+            errs = preview.errs
+            if any("INSUFFICIENT" in str(err).upper() for err in errs):
+                print(f"  {_WARN} Preview insufficient funds (auth OK)")
+                return True
+            print(f"  {_FAIL} Preview errors: {errs}")
+            return False
+        print(f"  {_PASS}  Order preview OK")
+        return True
+    except Exception as exc:
+        print(f"  {_FAIL} Preview failed: {exc}")
+        return False
+
+
 def check_coinbase_ws() -> bool:
     print("\n-- COINBASE WEBSOCKET ---------------------------")
     try:
@@ -154,6 +187,7 @@ def main() -> None:
         "env": check_env(),
         "dirs": check_dirs(),
         "rest": check_coinbase_rest(),
+        "preview": check_coinbase_trading_preview(),
         "ws": check_coinbase_ws(),
         "supabase": check_supabase(),
     }
