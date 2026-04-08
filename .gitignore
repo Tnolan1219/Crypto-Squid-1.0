@@ -20,3 +20,5 @@ data/logs/
 *.egg-info/
 .venv/
 venv/
+
+.vercel

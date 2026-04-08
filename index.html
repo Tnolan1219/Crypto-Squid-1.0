@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crypto Squid Control</title>
+    <style>
+      body { font-family: "Segoe UI", sans-serif; margin: 24px; background: #0f1720; color: #e7eef9; }
+      button { margin-right: 8px; padding: 10px 14px; border-radius: 8px; border: 0; cursor: pointer; }
+      .start { background: #2f9e44; color: #fff; }
+      .stop { background: #c92a2a; color: #fff; }
+      .refresh { background: #334155; color: #fff; }
+      pre { margin-top: 16px; background: #111827; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>Crypto Squid Remote Dashboard</h1>
+    <p>This site proxies control calls to your VPS securely via Vercel env vars.</p>
+    <div>
+      <button class="start" onclick="control('start')">Start</button>
+      <button class="stop" onclick="control('stop')">Stop</button>
+      <button class="refresh" onclick="refreshAll()">Refresh</button>
+    </div>
+    <pre id="out">Loading...</pre>
+    <script>
+      const out = document.getElementById("out");
+
+      async function call(path) {
+        const r = await fetch(path);
+        const body = await r.json();
+        return { status: r.status, body };
+      }
+
+      async function control(action) {
+        const result = await call(`/api/control?action=${action}`);
+        out.textContent = JSON.stringify(result, null, 2);
+      }
+
+      async function refreshAll() {
+        const [health, snapshot, status] = await Promise.all([
+          call("/api/health"),
+          call("/api/snapshot"),
+          call("/api/control?action=status"),
+        ]);
+        out.textContent = JSON.stringify({ health, snapshot, control: status }, null, 2);
+      }
+
+      refreshAll();
+    </script>
+  </body>
+</html>
