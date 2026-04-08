@@ -1,6 +1,7 @@
 const ALLOWED = new Set(["start", "stop", "status"]);
 
 module.exports = async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   const base = process.env.TRADER_API_BASE_URL;
   if (!base) {
     return res.status(500).json({ error: "missing_TRADER_API_BASE_URL" });
@@ -18,6 +19,7 @@ module.exports = async function handler(req, res) {
       method,
       headers: {
         Authorization: `Bearer ${process.env.TRADER_API_TOKEN || ""}`,
+        "Cache-Control": "no-cache",
       },
     });
     const body = await r.json();

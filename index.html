@@ -201,7 +201,8 @@
       }
 
       async function call(path) {
-        const r = await fetch(path);
+        const sep = path.includes("?") ? "&" : "?";
+        const r = await fetch(`${path}${sep}_t=${Date.now()}`);
         const body = await r.json().catch(() => ({ error: "invalid_json" }));
         return { status: r.status, body };
       }
