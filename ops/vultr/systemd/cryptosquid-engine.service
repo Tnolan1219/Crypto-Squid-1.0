@@ -1,0 +1,16 @@
+[Unit]
+Description=Crypto Squid Engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cryptosquid
+WorkingDirectory=/opt/cryptosquid
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/cryptosquid/.venv/bin/python scripts/run_all.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

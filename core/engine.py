@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -23,8 +24,35 @@ class Engine:
         )
         self.manager = StrategyManager()
         self._last_control_poll = 0.0
-        self._trading_enabled = self.settings.trading_enabled
+        self._failsafe_latched = False
+        self._runtime_control_path = self.root / "data" / "control" / "runtime_control.json"
+        self._ensure_runtime_control_file()
         self._register_strategies()
+
+    def _ensure_runtime_control_file(self) -> None:
+        self._runtime_control_path.parent.mkdir(parents=True, exist_ok=True)
+        if self._runtime_control_path.exists():
+            return
+        self._write_runtime_control(self.settings.trading_enabled, reason="bootstrap")
+
+    def _read_runtime_control(self) -> bool:
+        if not self._runtime_control_path.exists():
+            return self.settings.trading_enabled
+        try:
+            payload = json.loads(self._runtime_control_path.read_text(encoding="utf-8"))
+            return bool(payload.get("trading_enabled", self.settings.trading_enabled))
+        except Exception:
+            return self.settings.trading_enabled
+
+    def _write_runtime_control(self, enabled: bool, reason: str) -> None:
+        payload = {
+            "trading_enabled": bool(enabled),
+            "reason": reason,
+            "updated_at_unix": int(time.time()),
+        }
+        temp = self._runtime_control_path.with_suffix(".tmp")
+        temp.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+        temp.replace(self._runtime_control_path)
 
     def _register_strategies(self) -> None:
         if "coinbase_v2" in self.settings.enabled_strategies:
@@ -49,9 +77,16 @@ class Engine:
         self.manager.apply_control(control_rows)
 
     def _failsafe_check(self) -> None:
+        if self._failsafe_latched:
+            return
         if self.manager.daily_loss() > self.settings.max_daily_loss_usd:
-            self._trading_enabled = False
+            self._failsafe_latched = True
+            self._write_runtime_control(False, reason="max_daily_loss_breached")
             self.log.error("MAX_DAILY_LOSS breached; trading halted")
+
+    def _trading_enabled(self) -> bool:
+        manual_enabled = self._read_runtime_control()
+        return self.settings.trading_enabled and manual_enabled and not self._failsafe_latched
 
     def run(self) -> None:
         self.log.info("Engine starting")
@@ -60,7 +95,7 @@ class Engine:
                 self._refresh_control()
                 self._failsafe_check()
 
-                if not self._trading_enabled:
+                if not self._trading_enabled():
                     self.manager.cancel_all()
                     self.execution_router.cancel_all_orders()
                     for name in self.manager.names():

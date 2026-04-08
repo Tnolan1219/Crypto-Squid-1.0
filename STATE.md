@@ -27,6 +27,11 @@ Phase 1 — Event collection. Run bot_v2.py to accumulate candidate events.
   - `core/execution_router.py` centralized execution guardrails
   - `core/supabase_control.py` remote polling + heartbeat
   - `scripts/run_all.py` one-command runtime entrypoint
+- Remote operations layer ready:
+  - `src/dashboard.py` now exposes `/health`, `/snapshot`, `/control/status|start|stop`
+  - Manual runtime gate at `data/control/runtime_control.json`
+  - Vultr deploy assets in `ops/vultr/`
+  - Vercel proxy dashboard scaffold in `ops/vercel-dashboard/`
 - Strategy logic remains unchanged (adapter wraps existing v2 behavior)
 
 ## Go-Live Gate (from docs/ANTI_OVERFITTING_PROTOCOL.md)
@@ -42,6 +47,8 @@ Phase 1 — Event collection. Run bot_v2.py to accumulate candidate events.
 - [ ] Run: `.venv/Scripts/python.exe src/bot_v2.py`
 - [ ] Monitor output every 10 seconds — confirm prices, drop%, z-score, spread
 - [ ] Let run for hours/days to accumulate events
+- [ ] Deploy to Vultr via `ops/vultr/RUNBOOK.md`
+- [ ] Configure Vercel env vars and deploy `ops/vercel-dashboard`
 - [ ] Run `/weekly-review` after 1 week of data
 - [ ] Run `/propose-experiments` after 300 events collected
 - [ ] After 80 paper trades: run chronological validation (Phase 3)

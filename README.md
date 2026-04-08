@@ -36,6 +36,7 @@ The engine polls this table every 2-5 seconds and applies updates to each strate
    - `COINBASE_PRIVATE_KEY`
    - `SUPABASE_URL`
    - `SUPABASE_KEY`
+   - `CONTROL_API_TOKEN` (required for remote start/stop control)
 3. Keep `TRADING_ENABLED=true` for active loop or set `false` for safe attach.
 
 No keys are hardcoded in source.
@@ -81,7 +82,25 @@ Update `strategy_control.mode`:
 
 - Ctrl+C in local terminal
 - On VPS, stop the process manager service (systemd/pm2/supervisor)
-- For immediate remote halt, set `TRADING_ENABLED=false` in `.env` and restart service
+- For immediate remote halt without restart, call `GET /control/stop` with `Authorization: Bearer <CONTROL_API_TOKEN>`
+
+## Remote Control API (for Vercel proxy)
+
+Dashboard server now exposes control-safe endpoints:
+
+- `GET /health` - liveness + control-token configured flag
+- `GET /snapshot` - runtime state + current control state
+- `GET /control/status` - current manual trading toggle (auth required)
+- `GET|POST /control/start` - enables trading loop (auth required)
+- `GET|POST /control/stop` - disables trading loop (auth required)
+
+Auth rules:
+
+- Preferred: `Authorization: Bearer <CONTROL_API_TOKEN>`
+- Optional fallback: `?token=<CONTROL_API_TOKEN>`
+
+Control writes to `data/control/runtime_control.json`. Engine loop reads this file every tick.
+Failsafe latch still overrides manual start if max daily loss guard has been breached.
 
 ## Local Pre-VPS Functional Checks
 

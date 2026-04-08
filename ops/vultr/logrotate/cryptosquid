@@ -1,0 +1,12 @@
+/opt/cryptosquid/logs/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 cryptosquid cryptosquid
+    postrotate
+        systemctl kill -s HUP cryptosquid-engine cryptosquid-dashboard 2>/dev/null || true
+    endscript
+}

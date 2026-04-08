@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-08 - Vultr + Vercel Remote Ops Hardening
+- Added runtime manual control file gate (`data/control/runtime_control.json`) read by `core/engine.py` each loop
+- Added failsafe latch behavior in engine to prevent remote re-enable after max-daily-loss breach
+- Expanded `src/dashboard.py` with secure control endpoints: `/health`, `/snapshot`, `/control/status|start|stop`
+- Added `CONTROL_API_TOKEN`, `DASHBOARD_HOST`, and `DASHBOARD_PORT` support in runtime config handling
+- Aligned `.env.example` risk defaults with immutable strategy constraints (`0.50%`, `3/day`, `1.0%` daily loss)
+- Added Vultr deployment bundle under `ops/vultr/` (bootstrap script, systemd units, nginx template, checklist, runbook)
+- Added minimal Vercel proxy dashboard project under `ops/vercel-dashboard/` for remote monitoring and control
+
 ## 2026-04-04 - VPS Runtime Attach Layer
 - Added modular runtime orchestration under `core/` with `Engine`, `StrategyManager`, `ExecutionRouter`, and Supabase control polling
 - Added strategy adapter `strategies/coinbase_v2_strategy.py` that runs existing v2 logic without strategy rule changes

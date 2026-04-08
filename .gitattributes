@@ -1,0 +1,12 @@
+# Force LF for all shell scripts and configs deployed to Linux VPS
+*.sh text eol=lf
+ops/vultr/systemd/* text eol=lf
+ops/vultr/nginx/* text eol=lf
+ops/vultr/logrotate/* text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.conf text eol=lf
+*.html text eol=lf
+*.js text eol=lf

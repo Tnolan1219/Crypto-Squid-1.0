@@ -5,6 +5,6 @@ supabase==2.15.3
 pandas==2.3.2
 numpy==2.3.3
 structlog==24.1.0
-coinbase-advanced-py
-hyperliquid-python-sdk
+coinbase-advanced-py==1.8.2
+hyperliquid-python-sdk==0.22.0
 eth-account==0.11.3

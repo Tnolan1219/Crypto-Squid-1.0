@@ -3,12 +3,15 @@
 __pycache__/
 *.pyc
 *.pyo
-logs/
+logs/*
+!logs/.gitkeep
 data/trades/*.db
 data/trades/*.json
+data/control/*.json
 data/events/*.csv
 backtests/runs/
-journal/raw-trades/
+journal/raw-trades/*
+!journal/raw-trades/.gitkeep
 reports/daily/paper-test-*.json
 reports/daily/paper-test-*.md
 reports/daily/session-*.json
