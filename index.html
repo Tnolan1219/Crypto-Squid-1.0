@@ -3,37 +3,259 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Crypto Squid Control</title>
+    <title>Crypto Squid Live Dashboard</title>
     <style>
-      body { font-family: "Segoe UI", sans-serif; margin: 24px; background: #0f1720; color: #e7eef9; }
-      button { margin-right: 8px; padding: 10px 14px; border-radius: 8px; border: 0; cursor: pointer; }
-      .start { background: #2f9e44; color: #fff; }
-      .stop { background: #c92a2a; color: #fff; }
+      :root {
+        --bg0: #0b1320;
+        --bg1: #121f31;
+        --bg2: #1d2b3f;
+        --text: #e8f0fb;
+        --muted: #96a8c1;
+        --good: #2f9e44;
+        --warn: #f08c00;
+        --bad: #c92a2a;
+        --chip: #1f2e45;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        color: var(--text);
+        background: radial-gradient(1200px 500px at 20% -20%, #243958 0%, var(--bg0) 60%), var(--bg0);
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 24px auto;
+        padding: 0 14px 24px;
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: 0.2px;
+      }
+      .sub {
+        margin: 8px 0 0;
+        color: var(--muted);
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .start { background: var(--good); color: #fff; }
+      .stop { background: var(--bad); color: #fff; }
       .refresh { background: #334155; color: #fff; }
-      pre { margin-top: 16px; background: #111827; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+      .card {
+        margin-top: 14px;
+        background: linear-gradient(180deg, var(--bg2), var(--bg1));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .k {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .v {
+        font-size: 21px;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+      .chips {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        background: var(--chip);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      .good { color: #74d88a; }
+      .warn { color: #f6be63; }
+      .bad { color: #ff8a8a; }
+      .symbols {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 13px;
+      }
+      th, td {
+        text-align: left;
+        padding: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      th { color: var(--muted); font-weight: 600; }
+      pre {
+        margin: 0;
+        background: #0a1220;
+        border-radius: 10px;
+        padding: 10px;
+        overflow: auto;
+        max-height: 220px;
+      }
+      @media (max-width: 920px) {
+        .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .symbols { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
-    <h1>Crypto Squid Remote Dashboard</h1>
-    <p>This site proxies control calls to your VPS securely via Vercel env vars.</p>
-    <div>
-      <button class="start" onclick="control('start')">Start</button>
-      <button class="stop" onclick="control('stop')">Stop</button>
-      <button class="refresh" onclick="refreshAll()">Refresh</button>
+    <div class="wrap">
+      <div class="top">
+        <div>
+          <h1>Crypto Squid Live Dashboard</h1>
+          <p class="sub">Vercel proxy -> VPS runtime control + health + live snapshot</p>
+        </div>
+        <div class="actions">
+          <button class="start" onclick="control('start')">Start</button>
+          <button class="stop" onclick="control('stop')">Stop</button>
+          <button class="refresh" onclick="refreshAll()">Refresh</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="grid">
+          <div><div class="k">System Health</div><div id="kHealth" class="v">-</div></div>
+          <div><div class="k">Trading Gate</div><div id="kGate" class="v">-</div></div>
+          <div><div class="k">Mode</div><div id="kMode" class="v">-</div></div>
+          <div><div class="k">Updated</div><div id="kUpdated" class="v">-</div></div>
+        </div>
+        <div id="chips" class="chips"></div>
+      </div>
+
+      <div class="symbols" id="symbols"></div>
+
+      <div class="card">
+        <div class="k">Recent Trades (latest 10)</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Entry</th>
+              <th>Exit</th>
+              <th>PnL</th>
+            </tr>
+          </thead>
+          <tbody id="trades"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="k">Raw API Snapshot</div>
+        <pre id="out">Loading...</pre>
+      </div>
     </div>
-    <pre id="out">Loading...</pre>
+
     <script>
       const out = document.getElementById("out");
+      const kHealth = document.getElementById("kHealth");
+      const kGate = document.getElementById("kGate");
+      const kMode = document.getElementById("kMode");
+      const kUpdated = document.getElementById("kUpdated");
+      const chips = document.getElementById("chips");
+      const symbolsEl = document.getElementById("symbols");
+      const tradesEl = document.getElementById("trades");
+
+      function fmtNum(v, d = 2) {
+        const n = Number(v);
+        if (Number.isNaN(n)) return "-";
+        return n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
+      }
+
+      function cls(ok, warn) {
+        if (ok) return "good";
+        if (warn) return "warn";
+        return "bad";
+      }
 
       async function call(path) {
         const r = await fetch(path);
-        const body = await r.json();
+        const body = await r.json().catch(() => ({ error: "invalid_json" }));
         return { status: r.status, body };
       }
 
       async function control(action) {
         const result = await call(`/api/control?action=${action}`);
-        out.textContent = JSON.stringify(result, null, 2);
+        await refreshAll();
+        out.textContent = JSON.stringify({ control: result }, null, 2);
+      }
+
+      function renderSymbols(snapshot) {
+        const symbols = (snapshot && snapshot.state && snapshot.state.symbols) || {};
+        const names = Object.keys(symbols);
+        if (!names.length) {
+          symbolsEl.innerHTML = '<div class="card">No symbol data yet.</div>';
+          return;
+        }
+        symbolsEl.innerHTML = names.map((name) => {
+          const s = symbols[name] || {};
+          const spreadBad = Number(s.spread_bps || 0) > 30;
+          return `
+            <div class="card">
+              <div class="k">${name}</div>
+              <div class="v">$${fmtNum(s.price, 2)}</div>
+              <div class="chips">
+                <span class="chip ${cls(Number(s.drop_pct || 0) > 0.5, Number(s.drop_pct || 0) > 0.2)}">Drop: ${fmtNum(s.drop_pct || 0, 3)}%</span>
+                <span class="chip ${cls(Math.abs(Number(s.zscore || 0)) < 1.5, Math.abs(Number(s.zscore || 0)) < 2.5)}">Z: ${fmtNum(s.zscore || 0, 3)}</span>
+                <span class="chip ${cls(!spreadBad, Number(s.spread_bps || 0) <= 80)}">Spread: ${fmtNum(s.spread_bps || 0, 2)} bps</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      function renderTrades(snapshot) {
+        const trades = ((snapshot && snapshot.state && snapshot.state.trades) || []).slice(0, 10);
+        if (!trades.length) {
+          tradesEl.innerHTML = '<tr><td colspan="6">No closed trades yet.</td></tr>';
+          return;
+        }
+        tradesEl.innerHTML = trades.map((t) => {
+          const pnl = Number(t.pnl_usd || 0);
+          const signClass = pnl >= 0 ? "good" : "bad";
+          return `
+            <tr>
+              <td>${t.closed_at || t.exit_time || "-"}</td>
+              <td>${t.symbol || "-"}</td>
+              <td>${t.side || "-"}</td>
+              <td>${fmtNum(t.entry_price || 0, 2)}</td>
+              <td>${fmtNum(t.exit_price || 0, 2)}</td>
+              <td class="${signClass}">${fmtNum(pnl, 2)}</td>
+            </tr>
+          `;
+        }).join("");
       }
 
       async function refreshAll() {
@@ -42,9 +264,41 @@
           call("/api/snapshot"),
           call("/api/control?action=status"),
         ]);
+
+        const healthOk = health.status === 200 && health.body && health.body.status === "ok";
+        const tradingEnabled = Boolean(status.body && status.body.trading_enabled);
+        const state = (snapshot.body && snapshot.body.state) || {};
+        const mode = state.mode || {};
+        const isPaper = mode.paper_mode === true || mode.enable_live_trading === false;
+        const isLive = mode.enable_live_trading === true;
+
+        kHealth.textContent = healthOk ? "OK" : "DEGRADED";
+        kHealth.className = `v ${cls(healthOk, false)}`;
+
+        kGate.textContent = tradingEnabled ? "ENABLED" : "STOPPED";
+        kGate.className = `v ${cls(tradingEnabled, false)}`;
+
+        kMode.textContent = isLive ? "LIVE" : isPaper ? "PAPER" : "UNKNOWN";
+        kMode.className = `v ${isLive ? "warn" : "good"}`;
+
+        kUpdated.textContent = state.updated_at ? new Date(state.updated_at).toLocaleTimeString() : "-";
+
+        const chipsList = [
+          `Runtime state file: ${health.body && health.body.runtime_state_exists ? "present" : "missing"}`,
+          `Control token: ${health.body && health.body.control_token_configured ? "configured" : "missing"}`,
+          `Started at: ${state.started_at || "-"}`,
+          `Events: ${state.event_count || 0}`,
+          `Balance: $${fmtNum((state.account || {}).balance || 0, 2)}`,
+          `Realized PnL: $${fmtNum((state.account || {}).realized_pnl || 0, 2)}`,
+        ];
+        chips.innerHTML = chipsList.map((t) => `<span class="chip">${t}</span>`).join("");
+
+        renderSymbols(snapshot.body);
+        renderTrades(snapshot.body);
         out.textContent = JSON.stringify({ health, snapshot, control: status }, null, 2);
       }
 
+      setInterval(refreshAll, 5000);
       refreshAll();
     </script>
   </body>
