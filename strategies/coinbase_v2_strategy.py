@@ -25,6 +25,7 @@ from trade_history import TradeHistoryStore
 
 class CoinbaseV2Strategy(Strategy):
     SYMBOLS = ["BTC-USD", "ETH-USD"]
+    LIVE_SUPPORTED = False
 
     def __init__(self, config: dict, execution_router: ExecutionRouter, root: Path):
         super().__init__(config)
@@ -88,6 +89,11 @@ class CoinbaseV2Strategy(Strategy):
         return actions
 
     def execute(self, actions: list[dict]) -> None:
+        mode = str(self.config.get("mode", "paper"))
+        if mode == "live" and not self.LIVE_SUPPORTED:
+            self._write_runtime_state()
+            return
+
         for symbol in self.SYMBOLS:
             bars, _, _, current_price, _ = self._latest_snapshots.get(symbol, ([], 0.0, 0.0, 0.0, []))
             if not bars:
@@ -187,6 +193,7 @@ class CoinbaseV2Strategy(Strategy):
                 "trading_enabled": True,
                 "paper_mode": self.config.get("mode", "paper") == "paper",
                 "enable_live_trading": self.config.get("mode", "paper") == "live",
+                "live_supported": self.LIVE_SUPPORTED,
             },
             "version": "v2",
             "event_count": self._events.count(),

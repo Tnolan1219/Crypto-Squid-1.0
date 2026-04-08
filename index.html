@@ -287,6 +287,7 @@
         const chipsList = [
           `Runtime state file: ${health.body && health.body.runtime_state_exists ? "present" : "missing"}`,
           `Control token: ${health.body && health.body.control_token_configured ? "configured" : "missing"}`,
+          `Live execution support: ${mode.live_supported === false ? "not implemented in v2" : "available"}`,
           `Started at: ${state.started_at || "-"}`,
           `Events: ${state.event_count || 0}`,
           `Balance: $${fmtNum((state.account || {}).balance || 0, 2)}`,
