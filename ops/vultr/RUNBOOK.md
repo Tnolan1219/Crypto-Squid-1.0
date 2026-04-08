@@ -89,3 +89,14 @@ In Vercel project settings -> Environment Variables:
 - `TRADER_API_TOKEN=<CONTROL_TOKEN>`
 
 Redeploy after adding vars.
+
+## 9) Enable automatic VPS sync from GitHub main
+```bash
+chmod +x /opt/cryptosquid/ops/vultr/sync_from_github.sh
+cp /opt/cryptosquid/ops/vultr/systemd/cryptosquid-sync.service /etc/systemd/system/
+cp /opt/cryptosquid/ops/vultr/systemd/cryptosquid-sync.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now cryptosquid-sync.timer
+systemctl start cryptosquid-sync.service
+systemctl list-timers --all | grep cryptosquid-sync
+```

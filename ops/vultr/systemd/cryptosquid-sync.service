@@ -1,0 +1,9 @@
+[Unit]
+Description=Crypto Squid GitHub Sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/bin/bash /opt/cryptosquid/ops/vultr/sync_from_github.sh
