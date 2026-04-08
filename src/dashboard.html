@@ -5,58 +5,141 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Crypto Squid Dashboard</title>
   <style>
+    @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+
     :root {
-      --bg: #08111b;
-      --panel: #0f1c2a;
-      --line: #1f3246;
-      --text: #d9e5f3;
-      --muted: #8ea3bb;
-      --good: #26c281;
-      --bad: #ff6b6b;
-      --accent: #3fa9f5;
+      --bg: #060d17;
+      --panel: rgba(12, 24, 40, 0.78);
+      --line-soft: rgba(85, 124, 162, 0.32);
+      --text: #e8f0fb;
+      --muted: #9db0c8;
+      --good: #43d39f;
+      --bad: #ff7d7d;
+      --elev: 0 18px 45px rgba(0, 0, 0, 0.35);
+      --ease-out-quint: cubic-bezier(.23, 1, .32, 1);
+      --ease-in-out-cubic: cubic-bezier(.645, .045, .355, 1);
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       color: var(--text);
-      background: radial-gradient(circle at 0% 0%, #14304b 0%, var(--bg) 40%);
+      font-family: "IBM Plex Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(920px 560px at 10% -5%, rgba(76, 181, 255, 0.2), transparent 50%),
+        radial-gradient(860px 520px at 96% 4%, rgba(127, 144, 255, 0.16), transparent 50%),
+        linear-gradient(180deg, #07111f 0%, var(--bg) 100%);
+      min-height: 100vh;
     }
-    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
-    h1 { margin: 4px 0 14px; font-size: 24px; }
+
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(46px);
+      opacity: 0.32;
+      z-index: 0;
+      pointer-events: none;
+      animation: float 14s var(--ease-in-out-cubic) infinite;
+    }
+
+    .bg-orb.one { width: 340px; height: 340px; left: -120px; top: 120px; background: #1d84d8; }
+    .bg-orb.two { width: 300px; height: 300px; right: -80px; top: 260px; background: #4b57d8; animation-delay: -7s; }
+
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; position: relative; z-index: 1; }
+
+    h1 {
+      margin: 4px 0 14px;
+      font-size: 24px;
+      font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+      letter-spacing: 0.02em;
+    }
+
     .meta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+
     .pill {
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-soft);
       border-radius: 999px;
       padding: 6px 10px;
-      background: #0b1724;
-      font-size: 13px;
+      background: rgba(11, 22, 37, 0.78);
+      font-size: 12px;
       color: var(--muted);
     }
+
     .grid { display: grid; gap: 12px; }
     .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .chart-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
     .panel {
-      background: linear-gradient(180deg, #101f30 0%, var(--panel) 100%);
-      border: 1px solid var(--line);
-      border-radius: 12px;
+      background: linear-gradient(170deg, rgba(20, 38, 60, 0.62) 0%, var(--panel) 100%);
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
       padding: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: var(--elev);
+      transition: transform 220ms var(--ease-out-quint), border-color 220ms var(--ease-out-quint);
     }
-    .label { color: var(--muted); font-size: 12px; }
-    .value { font-size: 22px; margin-top: 2px; }
+
+    .panel:hover {
+      transform: translateY(-2px);
+      border-color: rgba(104, 166, 227, 0.58);
+    }
+
+    .kpi-card {
+      background: linear-gradient(160deg, rgba(23, 42, 66, 0.88) 0%, rgba(12, 25, 42, 0.9) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.08) 50%, transparent 70%);
+      transform: translateX(-120%);
+      transition: transform 520ms var(--ease-out-quint);
+      pointer-events: none;
+    }
+
+    .kpi-card:hover::after { transform: translateX(120%); }
+
+    .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; }
+    .value { font-size: 22px; margin-top: 2px; font-family: "Space Grotesk", "IBM Plex Sans", sans-serif; }
+    .value.changed { animation: value-flash 500ms var(--ease-out-quint); }
     .good { color: var(--good); }
     .bad { color: var(--bad); }
+
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px 6px; }
-    th { color: var(--muted); font-weight: 600; }
+    th, td { border-bottom: 1px solid rgba(80, 113, 144, 0.38); text-align: left; padding: 8px 6px; }
+    th { color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 11px; }
+    tbody tr:hover { background-color: rgba(74, 128, 178, 0.16); }
     .table-wrap { overflow-x: auto; }
     .chart { width: 100%; height: 180px; display: block; }
-    .chart-title { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+    .chart-title { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .small { font-size: 12px; color: var(--muted); }
     .open-pos { font-size: 13px; line-height: 1.6; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-24px); }
+    }
+
+    @keyframes value-flash {
+      from { opacity: 0.7; }
+      to { opacity: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
   </style>
 </head>
 <body>
+  <div class="bg-orb one"></div>
+  <div class="bg-orb two"></div>
   <div class="wrap">
     <h1>Crypto Squid Local Dashboard</h1>
     <div class="meta">
@@ -66,15 +149,15 @@
     </div>
 
     <div class="grid kpis">
-      <div class="panel"><div class="label">Balance</div><div class="value" id="balance">--</div></div>
-      <div class="panel"><div class="label">Realized P/L</div><div class="value" id="realized">--</div></div>
-      <div class="panel"><div class="label">Unrealized P/L</div><div class="value" id="unrealized">--</div></div>
-      <div class="panel"><div class="label">Total P/L %</div><div class="value" id="totalPct">--</div></div>
-      <div class="panel"><div class="label">Leveraged P/L %</div><div class="value" id="leveragedPct">--</div></div>
-      <div class="panel"><div class="label">Win Rate</div><div class="value" id="winRate">--</div></div>
-      <div class="panel"><div class="label">Expectancy / Trade</div><div class="value" id="expectancy">--</div></div>
-      <div class="panel"><div class="label">Profit Factor</div><div class="value" id="profitFactor">--</div></div>
-      <div class="panel"><div class="label">Closed Trades</div><div class="value" id="tradesClosed">--</div></div>
+      <div class="panel kpi-card"><div class="label">Balance</div><div class="value" id="balance">--</div></div>
+      <div class="panel kpi-card"><div class="label">Realized P/L</div><div class="value" id="realized">--</div></div>
+      <div class="panel kpi-card"><div class="label">Unrealized P/L</div><div class="value" id="unrealized">--</div></div>
+      <div class="panel kpi-card"><div class="label">Total P/L %</div><div class="value" id="totalPct">--</div></div>
+      <div class="panel kpi-card"><div class="label">Leveraged P/L %</div><div class="value" id="leveragedPct">--</div></div>
+      <div class="panel kpi-card"><div class="label">Win Rate</div><div class="value" id="winRate">--</div></div>
+      <div class="panel kpi-card"><div class="label">Expectancy / Trade</div><div class="value" id="expectancy">--</div></div>
+      <div class="panel kpi-card"><div class="label">Profit Factor</div><div class="value" id="profitFactor">--</div></div>
+      <div class="panel kpi-card"><div class="label">Closed Trades</div><div class="value" id="tradesClosed">--</div></div>
     </div>
 
     <div class="grid chart-grid" style="margin-top:12px;">
@@ -124,6 +207,16 @@
   </div>
 
   <script>
+    function setText(el, value) {
+      const next = String(value);
+      if (el.textContent !== next) {
+        el.classList.remove("changed");
+        void el.offsetWidth;
+        el.classList.add("changed");
+      }
+      el.textContent = next;
+    }
+
     function fmtMoney(n) {
       if (n === undefined || n === null) return "--";
       return `$${Number(n).toFixed(2)}`;
@@ -135,7 +228,7 @@
     }
 
     function paintValue(el, n, suffix = "") {
-      el.textContent = n === undefined || n === null ? "--" : `${Number(n).toFixed(2)}${suffix}`;
+      setText(el, n === undefined || n === null ? "--" : `${Number(n).toFixed(2)}${suffix}`);
       el.classList.remove("good", "bad");
       if (n > 0) el.classList.add("good");
       if (n < 0) el.classList.add("bad");
@@ -145,6 +238,7 @@
       const svg = document.getElementById(svgId);
       const width = svg.clientWidth || 320;
       const height = svg.clientHeight || 180;
+      const pad = 8;
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.innerHTML = "";
       if (!points || points.length < 2) return;
@@ -152,23 +246,51 @@
       const max = Math.max(...points);
       const range = max - min || 1;
       const line = points.map((value, i) => {
-        const x = (i / (points.length - 1)) * width;
-        const y = height - ((value - min) / range) * height;
+        const x = (i / (points.length - 1)) * (width - pad * 2) + pad;
+        const y = height - ((value - min) / range) * (height - pad * 2) - pad;
         return `${x},${y}`;
       }).join(" ");
-      const axisY = height - ((0 - min) / range) * height;
+      const axisY = height - ((0 - min) / range) * (height - pad * 2) - pad;
       const axis = document.createElementNS("http://www.w3.org/2000/svg", "line");
       axis.setAttribute("x1", "0");
       axis.setAttribute("x2", String(width));
       axis.setAttribute("y1", String(axisY));
       axis.setAttribute("y2", String(axisY));
-      axis.setAttribute("stroke", "#1f3246");
+      axis.setAttribute("stroke", "rgba(83,132,173,0.54)");
       axis.setAttribute("stroke-width", "1");
       svg.appendChild(axis);
+
+      const gradId = `${svgId}-fill`;
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+      gradient.setAttribute("id", gradId);
+      gradient.setAttribute("x1", "0");
+      gradient.setAttribute("y1", "0");
+      gradient.setAttribute("x2", "0");
+      gradient.setAttribute("y2", "1");
+      const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop1.setAttribute("offset", "0%");
+      stop1.setAttribute("stop-color", color);
+      stop1.setAttribute("stop-opacity", "0.38");
+      const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop2.setAttribute("offset", "100%");
+      stop2.setAttribute("stop-color", color);
+      stop2.setAttribute("stop-opacity", "0.02");
+      gradient.appendChild(stop1);
+      gradient.appendChild(stop2);
+      defs.appendChild(gradient);
+      svg.appendChild(defs);
+      const area = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      area.setAttribute("points", `${pad},${height - pad} ${line} ${width - pad},${height - pad}`);
+      area.setAttribute("fill", `url(#${gradId})`);
+      svg.appendChild(area);
+
       const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
       poly.setAttribute("fill", "none");
       poly.setAttribute("stroke", color);
-      poly.setAttribute("stroke-width", "2");
+      poly.setAttribute("stroke-width", "2.3");
+      poly.setAttribute("stroke-linecap", "round");
+      poly.setAttribute("stroke-linejoin", "round");
       poly.setAttribute("points", line);
       svg.appendChild(poly);
     }
@@ -181,27 +303,27 @@
     }
 
     function render(state) {
-      document.getElementById("updatedAt").textContent = `Updated: ${state.updated_at || "--"}`;
+      setText(document.getElementById("updatedAt"), `Updated: ${state.updated_at || "--"}`);
       const mode = state.mode || {};
       let modeText = "Log-Only";
       if (mode.enable_live_trading) modeText = "Live Enabled";
       else if (mode.paper_mode) modeText = "Paper Mode";
-      document.getElementById("modeTag").textContent = `Mode: ${modeText}`;
-      document.getElementById("statusTag").textContent = `Status: ${state.status || "running"}`;
+      setText(document.getElementById("modeTag"), `Mode: ${modeText}`);
+      setText(document.getElementById("statusTag"), `Status: ${state.status || "running"}`);
 
       const account = state.account || {};
-      document.getElementById("balance").textContent = fmtMoney(account.balance);
+      setText(document.getElementById("balance"), fmtMoney(account.balance));
       paintValue(document.getElementById("realized"), account.realized_pnl, "");
-      document.getElementById("realized").textContent = fmtMoney(account.realized_pnl);
+      setText(document.getElementById("realized"), fmtMoney(account.realized_pnl));
       paintValue(document.getElementById("unrealized"), account.unrealized_pnl, "");
-      document.getElementById("unrealized").textContent = fmtMoney(account.unrealized_pnl);
+      setText(document.getElementById("unrealized"), fmtMoney(account.unrealized_pnl));
       paintValue(document.getElementById("totalPct"), account.total_pnl_pct, "%");
       paintValue(document.getElementById("leveragedPct"), account.leveraged_total_pnl_pct, "%");
       const stats = state.stats || {};
-      document.getElementById("winRate").textContent = fmtPct(stats.win_rate_pct);
-      document.getElementById("expectancy").textContent = fmtMoney(stats.expectancy_usd_per_trade);
-      document.getElementById("profitFactor").textContent = Number(stats.profit_factor || 0).toFixed(2);
-      document.getElementById("tradesClosed").textContent = String(stats.trades_closed || 0);
+      setText(document.getElementById("winRate"), fmtPct(stats.win_rate_pct));
+      setText(document.getElementById("expectancy"), fmtMoney(stats.expectancy_usd_per_trade));
+      setText(document.getElementById("profitFactor"), Number(stats.profit_factor || 0).toFixed(2));
+      setText(document.getElementById("tradesClosed"), String(stats.trades_closed || 0));
 
       const symbolRows = document.getElementById("symbolRows");
       symbolRows.innerHTML = "";
