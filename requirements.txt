@@ -3,7 +3,7 @@ websockets==12.0
 requests==2.32.5
 supabase==2.15.3
 pandas==2.3.2
-numpy==2.3.3
+numpy==2.2.6
 structlog==24.1.0
 coinbase-advanced-py==1.8.2
 hyperliquid-python-sdk==0.22.0
