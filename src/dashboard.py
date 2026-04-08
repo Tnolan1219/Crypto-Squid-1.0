@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from dotenv import load_dotenv
+from coinbase_reporting import CoinbaseReportingClient
 
 
 ROOT = Path(__file__).parent.parent
@@ -18,6 +19,22 @@ RUNTIME_CONTROL_PATH = ROOT / "data" / "control" / "runtime_control.json"
 HTML_PATH = Path(__file__).parent / "dashboard.html"
 
 load_dotenv(ROOT / ".env")
+REPORTING = CoinbaseReportingClient()
+
+
+def _engine_running(state: dict) -> bool:
+    updated = state.get("updated_at")
+    if not updated:
+        return False
+    try:
+        ts = updated.replace("Z", "+00:00")
+        now = int(time.time())
+        from datetime import datetime
+
+        then = int(datetime.fromisoformat(ts).timestamp())
+        return (now - then) <= 20
+    except Exception:
+        return False
 
 
 def _control_token() -> str:
@@ -101,16 +118,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path == "/health":
+            state = _read_state()
             self._json(
                 {
                     "status": "ok",
                     "runtime_state_exists": RUNTIME_STATE_PATH.exists(),
                     "control_token_configured": bool(_control_token()),
+                    "engine_running": _engine_running(state),
                 }
             )
             return
         if path == "/snapshot":
-            self._json({"state": _read_state(), "control": _read_control()})
+            state = _read_state()
+            self._json(
+                {
+                    "state": state,
+                    "control": _read_control(),
+                    "coinbase": REPORTING.snapshot().payload,
+                    "engine_running": _engine_running(state),
+                }
+            )
             return
         if path == "/api/state":
             self._json(_read_state())

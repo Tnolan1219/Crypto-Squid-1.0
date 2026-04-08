@@ -48,6 +48,17 @@
       font-size: 13px;
       color: var(--muted);
     }
+    .dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #667;
+      vertical-align: middle;
+    }
+    .dot.on { background: var(--good); box-shadow: 0 0 8px rgba(38,194,129,0.8); }
+    .dot.off { background: var(--bad); box-shadow: 0 0 8px rgba(255,107,107,0.8); }
     .grid { display: grid; gap: 12px; }
     .kpis { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
     .chart-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
@@ -102,6 +113,7 @@
       <div class="pill" id="statusTag">Status: waiting</div>
       <div class="pill" id="healthTag">API: --</div>
       <div class="pill" id="gateTag">Gate: --</div>
+      <div class="pill" id="runTag"><span class="dot" id="runDot"></span>Engine: --</div>
     </div>
 
     <div class="grid kpis">
@@ -115,6 +127,10 @@
       <div class="panel"><div class="label">Closed Trades</div><div class="value" id="tradesClosed">--</div></div>
       <div class="panel"><div class="label">Event Count</div><div class="value" id="eventCount">--</div></div>
       <div class="panel"><div class="label">Live Support</div><div class="value" id="liveSupport">--</div></div>
+      <div class="panel"><div class="label">Coinbase Est. Equity</div><div class="value" id="cbEquity">--</div></div>
+      <div class="panel"><div class="label">Open Limit Orders</div><div class="value" id="openOrdersCount">--</div></div>
+      <div class="panel"><div class="label">BTC Live Price</div><div class="value" id="btcLive">--</div></div>
+      <div class="panel"><div class="label">ETH Live Price</div><div class="value" id="ethLive">--</div></div>
     </div>
 
     <div class="grid chart-grid" style="margin-top:12px;">
@@ -146,6 +162,30 @@
             </tr>
           </thead>
           <tbody id="tradeRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px;">
+      <p class="chart-title">Coinbase Open Orders</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Created</th><th>Symbol</th><th>Side</th><th>Price</th><th>Size</th><th>Status</th></tr>
+          </thead>
+          <tbody id="openOrderRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px;">
+      <p class="chart-title">Coinbase Recent Fills</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Symbol</th><th>Side</th><th>Price</th><th>Size</th><th>Fee</th></tr>
+          </thead>
+          <tbody id="fillRows"></tbody>
         </table>
       </div>
     </div>
@@ -232,6 +272,7 @@
       const control = data.control || {};
       const state = snap.state || {};
       const mode = state.mode || {};
+      const coinbase = snap.coinbase || {};
 
       document.getElementById("updatedAt").textContent = `Updated: ${state.updated_at || "--"}`;
       let modeText = "paper";
@@ -241,6 +282,10 @@
       document.getElementById("statusTag").textContent = `Status: ${state.status || "waiting"}`;
       document.getElementById("healthTag").textContent = `API: ${health.status === "ok" ? "ok" : "degraded"}`;
       document.getElementById("gateTag").textContent = `Gate: ${control.trading_enabled ? "enabled" : "stopped"}`;
+      const running = Boolean(snap.engine_running);
+      document.getElementById("runTag").lastChild.textContent = `Engine: ${running ? "running" : "stale/off"}`;
+      const runDot = document.getElementById("runDot");
+      runDot.className = `dot ${running ? "on" : "off"}`;
 
       const account = state.account || {};
       document.getElementById("balance").textContent = fmtMoney(account.balance);
@@ -258,6 +303,10 @@
       const liveSupport = mode.live_supported === false ? "not-ready" : "ready";
       document.getElementById("liveSupport").textContent = liveSupport;
       document.getElementById("liveSupport").className = `value ${liveSupport === "ready" ? "good" : "warn"}`;
+      document.getElementById("cbEquity").textContent = coinbase.ok ? fmtMoney(coinbase.estimated_total_usd) : "--";
+      document.getElementById("openOrdersCount").textContent = coinbase.ok ? String(coinbase.open_orders_count || 0) : "--";
+      document.getElementById("btcLive").textContent = coinbase.ok ? `$${Number((coinbase.prices || {})["BTC-USD"] || 0).toFixed(2)}` : "--";
+      document.getElementById("ethLive").textContent = coinbase.ok ? `$${Number((coinbase.prices || {})["ETH-USD"] || 0).toFixed(2)}` : "--";
 
       const symbolRows = document.getElementById("symbolRows");
       symbolRows.innerHTML = "";
@@ -298,6 +347,44 @@
           `<td>${trade.mode || (mode.enable_live_trading ? "live" : "paper")}</td>`;
         tradeRows.appendChild(row);
       });
+
+      const ooRows = document.getElementById("openOrderRows");
+      ooRows.innerHTML = "";
+      const openOrders = coinbase.open_orders || [];
+      if (!openOrders.length) {
+        ooRows.innerHTML = '<tr><td colspan="6">No open orders.</td></tr>';
+      } else {
+        openOrders.forEach((o) => {
+          const row = document.createElement("tr");
+          row.innerHTML =
+            `<td class="small">${o.created_time || ""}</td>` +
+            `<td>${o.product_id || ""}</td>` +
+            `<td>${o.side || ""}</td>` +
+            `<td>${o.limit_price || ""}</td>` +
+            `<td>${o.base_size || ""}</td>` +
+            `<td>${o.status || ""}</td>`;
+          ooRows.appendChild(row);
+        });
+      }
+
+      const fillRows = document.getElementById("fillRows");
+      fillRows.innerHTML = "";
+      const fills = coinbase.recent_fills || [];
+      if (!fills.length) {
+        fillRows.innerHTML = '<tr><td colspan="6">No recent fills.</td></tr>';
+      } else {
+        fills.forEach((f) => {
+          const row = document.createElement("tr");
+          row.innerHTML =
+            `<td class="small">${f.trade_time || ""}</td>` +
+            `<td>${f.product_id || ""}</td>` +
+            `<td>${f.side || ""}</td>` +
+            `<td>${f.price || ""}</td>` +
+            `<td>${f.size || ""}</td>` +
+            `<td>${f.commission || ""}</td>`;
+          fillRows.appendChild(row);
+        });
+      }
 
       const btcHistory = symbols["BTC-USD"] ? symbols["BTC-USD"].history : [];
       const ethHistory = symbols["ETH-USD"] ? symbols["ETH-USD"].history : [];
