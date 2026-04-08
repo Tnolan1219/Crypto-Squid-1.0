@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-04-08 - Live Reporting + Repeatable Ops Playbooks
+- Added Coinbase reporting pipeline at `src/coinbase_reporting.py` (prices, balances, open orders, recent fills)
+- Expanded `src/dashboard.py` snapshot/health payloads with reporting + engine heartbeat fields
+- Expanded Vercel dashboard (`index.html`) with running indicator icon, live BTC/ETH, open orders/fills tables, and reporting KPIs
+- Added complete local->VPS->Vercel retro + repeatable workflow doc: `ops/vultr/LOCAL_TO_VPS_FULL_WORKFLOW.md`
+- Added reusable Kalshi-on-same-VPS attach template: `ops/vultr/KALSHI_VPS_ATTACH_TEMPLATE.md`
+
 ## 2026-04-08 - Vultr + Vercel Remote Ops Hardening
 - Added runtime manual control file gate (`data/control/runtime_control.json`) read by `core/engine.py` each loop
 - Added failsafe latch behavior in engine to prevent remote re-enable after max-daily-loss breach
