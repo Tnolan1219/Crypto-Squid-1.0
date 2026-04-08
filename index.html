@@ -1,307 +1,333 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Crypto Squid Live Dashboard</title>
-    <style>
-      :root {
-        --bg0: #0b1320;
-        --bg1: #121f31;
-        --bg2: #1d2b3f;
-        --text: #e8f0fb;
-        --muted: #96a8c1;
-        --good: #2f9e44;
-        --warn: #f08c00;
-        --bad: #c92a2a;
-        --chip: #1f2e45;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-        color: var(--text);
-        background: radial-gradient(1200px 500px at 20% -20%, #243958 0%, var(--bg0) 60%), var(--bg0);
-      }
-      .wrap {
-        max-width: 1120px;
-        margin: 24px auto;
-        padding: 0 14px 24px;
-      }
-      .top {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      h1 {
-        margin: 0;
-        font-size: 28px;
-        letter-spacing: 0.2px;
-      }
-      .sub {
-        margin: 8px 0 0;
-        color: var(--muted);
-      }
-      .actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      button {
-        border: 0;
-        border-radius: 10px;
-        padding: 10px 14px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .start { background: var(--good); color: #fff; }
-      .stop { background: var(--bad); color: #fff; }
-      .refresh { background: #334155; color: #fff; }
-      .card {
-        margin-top: 14px;
-        background: linear-gradient(180deg, var(--bg2), var(--bg1));
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 14px;
-        padding: 14px;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .k {
-        color: var(--muted);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-      }
-      .v {
-        font-size: 21px;
-        font-weight: 700;
-        margin-top: 4px;
-      }
-      .chips {
-        margin-top: 10px;
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .chip {
-        background: var(--chip);
-        border-radius: 999px;
-        padding: 6px 10px;
-        font-size: 12px;
-      }
-      .good { color: #74d88a; }
-      .warn { color: #f6be63; }
-      .bad { color: #ff8a8a; }
-      .symbols {
-        margin-top: 12px;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 8px;
-        font-size: 13px;
-      }
-      th, td {
-        text-align: left;
-        padding: 8px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      }
-      th { color: var(--muted); font-weight: 600; }
-      pre {
-        margin: 0;
-        background: #0a1220;
-        border-radius: 10px;
-        padding: 10px;
-        overflow: auto;
-        max-height: 220px;
-      }
-      @media (max-width: 920px) {
-        .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .symbols { grid-template-columns: 1fr; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="top">
-        <div>
-          <h1>Crypto Squid Live Dashboard</h1>
-          <p class="sub">Vercel proxy -> VPS runtime control + health + live snapshot</p>
-        </div>
-        <div class="actions">
-          <button class="start" onclick="control('start')">Start</button>
-          <button class="stop" onclick="control('stop')">Stop</button>
-          <button class="refresh" onclick="refreshAll()">Refresh</button>
-        </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crypto Squid Live Dashboard</title>
+  <style>
+    :root {
+      --bg: #08111b;
+      --panel: #0f1c2a;
+      --line: #1f3246;
+      --text: #d9e5f3;
+      --muted: #8ea3bb;
+      --good: #26c281;
+      --bad: #ff6b6b;
+      --warn: #f7b267;
+      --accent: #3fa9f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 0% 0%, #14304b 0%, var(--bg) 40%);
+    }
+    .wrap { max-width: 1240px; margin: 0 auto; padding: 16px; }
+    .top { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+    h1 { margin: 4px 0 8px; font-size: 24px; }
+    .top p { margin: 0; color: var(--muted); font-size: 13px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 12px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .start { background: #1f6f4a; }
+    .stop { background: #7a2f2f; }
+    .refresh { background: #1c3b57; }
+    .meta { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #0b1724;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .grid { display: grid; gap: 12px; }
+    .kpis { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .chart-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .panel {
+      background: linear-gradient(180deg, #101f30 0%, var(--panel) 100%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .label { color: var(--muted); font-size: 12px; }
+    .value { font-size: 22px; margin-top: 2px; }
+    .good { color: var(--good); }
+    .bad { color: var(--bad); }
+    .warn { color: var(--warn); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px 6px; }
+    th { color: var(--muted); font-weight: 600; }
+    .table-wrap { overflow-x: auto; }
+    .chart { width: 100%; height: 190px; display: block; }
+    .chart-title { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+    .small { font-size: 12px; color: var(--muted); }
+    .open-pos { font-size: 13px; line-height: 1.6; min-height: 60px; }
+    pre {
+      margin: 0;
+      max-height: 240px;
+      overflow: auto;
+      background: #0b1724;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Crypto Squid Live Dashboard</h1>
+        <p>Vercel proxy -> VPS control + runtime analytics + live charts</p>
       </div>
-
-      <div class="card">
-        <div class="grid">
-          <div><div class="k">System Health</div><div id="kHealth" class="v">-</div></div>
-          <div><div class="k">Trading Gate</div><div id="kGate" class="v">-</div></div>
-          <div><div class="k">Mode</div><div id="kMode" class="v">-</div></div>
-          <div><div class="k">Updated</div><div id="kUpdated" class="v">-</div></div>
-        </div>
-        <div id="chips" class="chips"></div>
-      </div>
-
-      <div class="symbols" id="symbols"></div>
-
-      <div class="card">
-        <div class="k">Recent Trades (latest 10)</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Symbol</th>
-              <th>Side</th>
-              <th>Entry</th>
-              <th>Exit</th>
-              <th>PnL</th>
-            </tr>
-          </thead>
-          <tbody id="trades"></tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <div class="k">Raw API Snapshot</div>
-        <pre id="out">Loading...</pre>
+      <div class="controls">
+        <button class="start" onclick="control('start')">Start</button>
+        <button class="stop" onclick="control('stop')">Stop</button>
+        <button class="refresh" onclick="refresh()">Refresh</button>
       </div>
     </div>
 
-    <script>
-      const out = document.getElementById("out");
-      const kHealth = document.getElementById("kHealth");
-      const kGate = document.getElementById("kGate");
-      const kMode = document.getElementById("kMode");
-      const kUpdated = document.getElementById("kUpdated");
-      const chips = document.getElementById("chips");
-      const symbolsEl = document.getElementById("symbols");
-      const tradesEl = document.getElementById("trades");
+    <div class="meta">
+      <div class="pill" id="updatedAt">Updated: --</div>
+      <div class="pill" id="modeTag">Mode: --</div>
+      <div class="pill" id="statusTag">Status: waiting</div>
+      <div class="pill" id="healthTag">API: --</div>
+      <div class="pill" id="gateTag">Gate: --</div>
+    </div>
 
-      function fmtNum(v, d = 2) {
-        const n = Number(v);
-        if (Number.isNaN(n)) return "-";
-        return n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
-      }
+    <div class="grid kpis">
+      <div class="panel"><div class="label">Balance</div><div class="value" id="balance">--</div></div>
+      <div class="panel"><div class="label">Realized P/L</div><div class="value" id="realized">--</div></div>
+      <div class="panel"><div class="label">Unrealized P/L</div><div class="value" id="unrealized">--</div></div>
+      <div class="panel"><div class="label">Total P/L %</div><div class="value" id="totalPct">--</div></div>
+      <div class="panel"><div class="label">Win Rate</div><div class="value" id="winRate">--</div></div>
+      <div class="panel"><div class="label">Expectancy / Trade</div><div class="value" id="expectancy">--</div></div>
+      <div class="panel"><div class="label">Profit Factor</div><div class="value" id="profitFactor">--</div></div>
+      <div class="panel"><div class="label">Closed Trades</div><div class="value" id="tradesClosed">--</div></div>
+      <div class="panel"><div class="label">Event Count</div><div class="value" id="eventCount">--</div></div>
+      <div class="panel"><div class="label">Live Support</div><div class="value" id="liveSupport">--</div></div>
+    </div>
 
-      function cls(ok, warn) {
-        if (ok) return "good";
-        if (warn) return "warn";
-        return "bad";
-      }
+    <div class="grid chart-grid" style="margin-top:12px;">
+      <div class="panel"><p class="chart-title">BTC % Change (3m window)</p><svg class="chart" id="btcChart"></svg></div>
+      <div class="panel"><p class="chart-title">ETH % Change (3m window)</p><svg class="chart" id="ethChart"></svg></div>
+      <div class="panel"><p class="chart-title">Equity Curve %</p><svg class="chart" id="equityChart"></svg></div>
+      <div class="panel"><p class="chart-title">Open Position</p><div class="open-pos" id="openPosition">No active position</div></div>
+    </div>
 
-      async function call(path) {
-        const sep = path.includes("?") ? "&" : "?";
-        const r = await fetch(`${path}${sep}_t=${Date.now()}`);
-        const body = await r.json().catch(() => ({ error: "invalid_json" }));
-        return { status: r.status, body };
-      }
+    <div class="panel" style="margin-top:12px;">
+      <p class="chart-title">Live Symbol Metrics</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Symbol</th><th>Price</th><th>Drop %</th><th>Z-Score</th><th>Spread bps</th></tr>
+          </thead>
+          <tbody id="symbolRows"></tbody>
+        </table>
+      </div>
+    </div>
 
-      async function control(action) {
-        const result = await call(`/api/control?action=${action}`);
-        await refreshAll();
-        out.textContent = JSON.stringify({ control: result }, null, 2);
-      }
-
-      function renderSymbols(snapshot) {
-        const symbols = (snapshot && snapshot.state && snapshot.state.symbols) || {};
-        const names = Object.keys(symbols);
-        if (!names.length) {
-          symbolsEl.innerHTML = '<div class="card">No symbol data yet.</div>';
-          return;
-        }
-        symbolsEl.innerHTML = names.map((name) => {
-          const s = symbols[name] || {};
-          const spreadBad = Number(s.spread_bps || 0) > 30;
-          return `
-            <div class="card">
-              <div class="k">${name}</div>
-              <div class="v">$${fmtNum(s.price, 2)}</div>
-              <div class="chips">
-                <span class="chip ${cls(Number(s.drop_pct || 0) > 0.5, Number(s.drop_pct || 0) > 0.2)}">Drop: ${fmtNum(s.drop_pct || 0, 3)}%</span>
-                <span class="chip ${cls(Math.abs(Number(s.zscore || 0)) < 1.5, Math.abs(Number(s.zscore || 0)) < 2.5)}">Z: ${fmtNum(s.zscore || 0, 3)}</span>
-                <span class="chip ${cls(!spreadBad, Number(s.spread_bps || 0) <= 80)}">Spread: ${fmtNum(s.spread_bps || 0, 2)} bps</span>
-              </div>
-            </div>
-          `;
-        }).join("");
-      }
-
-      function renderTrades(snapshot) {
-        const trades = ((snapshot && snapshot.state && snapshot.state.trades) || []).slice(0, 10);
-        if (!trades.length) {
-          tradesEl.innerHTML = '<tr><td colspan="6">No closed trades yet.</td></tr>';
-          return;
-        }
-        tradesEl.innerHTML = trades.map((t) => {
-          const pnl = Number(t.pnl_usd || 0);
-          const signClass = pnl >= 0 ? "good" : "bad";
-          return `
+    <div class="panel" style="margin-top:12px;">
+      <p class="chart-title">Recent Trades</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
             <tr>
-              <td>${t.closed_at || t.exit_time || "-"}</td>
-              <td>${t.symbol || "-"}</td>
-              <td>${t.side || "-"}</td>
-              <td>${fmtNum(t.entry_price || 0, 2)}</td>
-              <td>${fmtNum(t.exit_price || 0, 2)}</td>
-              <td class="${signClass}">${fmtNum(pnl, 2)}</td>
+              <th>Time (UTC)</th><th>Symbol</th><th>Entry</th><th>Exit</th><th>Size</th><th>Reason</th><th>P/L</th><th>P/L %</th><th>Mode</th>
             </tr>
-          `;
-        }).join("");
+          </thead>
+          <tbody id="tradeRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px;">
+      <p class="chart-title">Raw Snapshot</p>
+      <pre id="raw">Loading...</pre>
+    </div>
+  </div>
+
+  <script>
+    function fmtMoney(n) {
+      if (n === undefined || n === null) return "--";
+      return `$${Number(n).toFixed(2)}`;
+    }
+
+    function fmtPct(n) {
+      if (n === undefined || n === null) return "--";
+      return `${Number(n).toFixed(2)}%`;
+    }
+
+    function paintValue(el, n, suffix = "") {
+      el.textContent = n === undefined || n === null ? "--" : `${Number(n).toFixed(2)}${suffix}`;
+      el.classList.remove("good", "bad", "warn");
+      if (n > 0) el.classList.add("good");
+      if (n < 0) el.classList.add("bad");
+    }
+
+    function drawPercentChart(svgId, points, color) {
+      const svg = document.getElementById(svgId);
+      const width = svg.clientWidth || 320;
+      const height = svg.clientHeight || 180;
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.innerHTML = "";
+      if (!points || points.length < 2) return;
+      const min = Math.min(...points);
+      const max = Math.max(...points);
+      const range = max - min || 1;
+      const line = points.map((value, i) => {
+        const x = (i / (points.length - 1)) * width;
+        const y = height - ((value - min) / range) * height;
+        return `${x},${y}`;
+      }).join(" ");
+      const axisY = height - ((0 - min) / range) * height;
+      const axis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      axis.setAttribute("x1", "0");
+      axis.setAttribute("x2", String(width));
+      axis.setAttribute("y1", String(axisY));
+      axis.setAttribute("y2", String(axisY));
+      axis.setAttribute("stroke", "#1f3246");
+      axis.setAttribute("stroke-width", "1");
+      svg.appendChild(axis);
+      const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      poly.setAttribute("fill", "none");
+      poly.setAttribute("stroke", color);
+      poly.setAttribute("stroke-width", "2");
+      poly.setAttribute("points", line);
+      svg.appendChild(poly);
+    }
+
+    function pctSeriesFromHistory(history) {
+      if (!history || history.length < 2) return [];
+      const base = Number(history[0].price);
+      if (!base) return [];
+      return history.map(item => (Number(item.price) - base) / base * 100);
+    }
+
+    async function call(path, method = "GET") {
+      const sep = path.includes("?") ? "&" : "?";
+      const url = `${path}${sep}_t=${Date.now()}`;
+      const r = await fetch(url, { method, cache: "no-store" });
+      const body = await r.json().catch(() => ({}));
+      return { status: r.status, body };
+    }
+
+    async function control(action) {
+      await call(`/api/control?action=${action}`, action === "status" ? "GET" : "POST");
+      await refresh();
+    }
+
+    function render(data) {
+      const health = data.health || {};
+      const snap = data.snapshot || {};
+      const control = data.control || {};
+      const state = snap.state || {};
+      const mode = state.mode || {};
+
+      document.getElementById("updatedAt").textContent = `Updated: ${state.updated_at || "--"}`;
+      let modeText = "paper";
+      if (mode.enable_live_trading) modeText = "live";
+      if (mode.log_only) modeText = "log-only";
+      document.getElementById("modeTag").textContent = `Mode: ${modeText}`;
+      document.getElementById("statusTag").textContent = `Status: ${state.status || "waiting"}`;
+      document.getElementById("healthTag").textContent = `API: ${health.status === "ok" ? "ok" : "degraded"}`;
+      document.getElementById("gateTag").textContent = `Gate: ${control.trading_enabled ? "enabled" : "stopped"}`;
+
+      const account = state.account || {};
+      document.getElementById("balance").textContent = fmtMoney(account.balance);
+      paintValue(document.getElementById("realized"), account.realized_pnl);
+      document.getElementById("realized").textContent = fmtMoney(account.realized_pnl);
+      paintValue(document.getElementById("unrealized"), account.unrealized_pnl || 0);
+      document.getElementById("unrealized").textContent = fmtMoney(account.unrealized_pnl || 0);
+      paintValue(document.getElementById("totalPct"), account.total_pnl_pct || account.realized_pnl_pct || 0, "%");
+      const stats = state.stats || {};
+      document.getElementById("winRate").textContent = fmtPct(stats.win_rate_pct || 0);
+      document.getElementById("expectancy").textContent = fmtMoney(stats.expectancy_usd_per_trade || 0);
+      document.getElementById("profitFactor").textContent = Number(stats.profit_factor || 0).toFixed(2);
+      document.getElementById("tradesClosed").textContent = String(stats.trades_closed || 0);
+      document.getElementById("eventCount").textContent = String(state.event_count || 0);
+      const liveSupport = mode.live_supported === false ? "not-ready" : "ready";
+      document.getElementById("liveSupport").textContent = liveSupport;
+      document.getElementById("liveSupport").className = `value ${liveSupport === "ready" ? "good" : "warn"}`;
+
+      const symbolRows = document.getElementById("symbolRows");
+      symbolRows.innerHTML = "";
+      const symbols = state.symbols || {};
+      Object.keys(symbols).forEach(symbol => {
+        const row = document.createElement("tr");
+        const d = symbols[symbol] || {};
+        row.innerHTML = `<td>${symbol}</td><td>${Number(d.price || 0).toFixed(2)}</td><td>${Number(d.drop_pct || 0).toFixed(3)}%</td><td>${Number(d.zscore || 0).toFixed(2)}</td><td>${Number(d.spread_bps || 0).toFixed(1)}</td>`;
+        symbolRows.appendChild(row);
+      });
+
+      const open = state.active_position || state.position;
+      if (!open) {
+        document.getElementById("openPosition").textContent = "No active position";
+      } else {
+        document.getElementById("openPosition").innerHTML =
+          `<b>${open.symbol}</b><br>` +
+          `Entry: ${Number(open.entry || 0).toFixed(2)} | Mark: ${Number(open.mark_price || open.current_price || open.entry || 0).toFixed(2)}<br>` +
+          `Size: ${Number(open.size || 0).toFixed(6)} | TP: ${Number(open.tp || open.tp2 || 0).toFixed(2)} | SL: ${Number(open.stop || 0).toFixed(2)}<br>` +
+          `Age: ${Number(open.age_minutes || 0).toFixed(1)}m | Unrealized: ${fmtMoney(open.unrealized_pnl || 0)}`;
       }
 
-      async function refreshAll() {
-        const [health, snapshot, status] = await Promise.all([
-          call("/api/health"),
-          call("/api/snapshot"),
-          call("/api/control?action=status"),
-        ]);
+      const trades = (state.trades || []).slice().reverse();
+      const tradeRows = document.getElementById("tradeRows");
+      tradeRows.innerHTML = "";
+      trades.forEach(trade => {
+        const row = document.createElement("tr");
+        const pnl = Number(trade.pnl || 0);
+        row.innerHTML =
+          `<td class="small">${trade.ts || ""}</td>` +
+          `<td>${trade.symbol || ""}</td>` +
+          `<td>${Number(trade.entry || 0).toFixed(2)}</td>` +
+          `<td>${Number(trade.exit || 0).toFixed(2)}</td>` +
+          `<td>${Number(trade.size || 0).toFixed(6)}</td>` +
+          `<td>${trade.reason || ""}</td>` +
+          `<td class="${pnl >= 0 ? "good" : "bad"}">${fmtMoney(pnl)}</td>` +
+          `<td class="${pnl >= 0 ? "good" : "bad"}">${fmtPct(trade.pnl_pct || 0)}</td>` +
+          `<td>${trade.mode || (mode.enable_live_trading ? "live" : "paper")}</td>`;
+        tradeRows.appendChild(row);
+      });
 
-        const healthOk = health.status === 200 && health.body && health.body.status === "ok";
-        const tradingEnabled = Boolean(status.body && status.body.trading_enabled);
-        const state = (snapshot.body && snapshot.body.state) || {};
-        const mode = state.mode || {};
-        const isPaper = mode.paper_mode === true || mode.enable_live_trading === false;
-        const isLive = mode.enable_live_trading === true;
+      const btcHistory = symbols["BTC-USD"] ? symbols["BTC-USD"].history : [];
+      const ethHistory = symbols["ETH-USD"] ? symbols["ETH-USD"].history : [];
+      drawPercentChart("btcChart", pctSeriesFromHistory(btcHistory), "#3fa9f5");
+      drawPercentChart("ethChart", pctSeriesFromHistory(ethHistory), "#f7b267");
 
-        kHealth.textContent = healthOk ? "OK" : "DEGRADED";
-        kHealth.className = `v ${cls(healthOk, false)}`;
+      const start = Number(account.starting_balance || 0);
+      let running = start;
+      const equityPct = [];
+      (state.trades || []).forEach(t => {
+        running += Number(t.pnl || 0);
+        if (start > 0) equityPct.push((running - start) / start * 100);
+      });
+      if (equityPct.length === 0 && start > 0) equityPct.push(0);
+      drawPercentChart("equityChart", equityPct, "#26c281");
 
-        kGate.textContent = tradingEnabled ? "ENABLED" : "STOPPED";
-        kGate.className = `v ${cls(tradingEnabled, false)}`;
+      document.getElementById("raw").textContent = JSON.stringify(data, null, 2);
+    }
 
-        kMode.textContent = isLive ? "LIVE" : isPaper ? "PAPER" : "UNKNOWN";
-        kMode.className = `v ${isLive ? "warn" : "good"}`;
+    async function refresh() {
+      const [health, snapshot, controlStatus] = await Promise.all([
+        call("/api/health"),
+        call("/api/snapshot"),
+        call("/api/control?action=status"),
+      ]);
+      render({ health: health.body, snapshot: snapshot.body, control: controlStatus.body });
+    }
 
-        kUpdated.textContent = state.updated_at ? new Date(state.updated_at).toLocaleTimeString() : "-";
-
-        const chipsList = [
-          `Runtime state file: ${health.body && health.body.runtime_state_exists ? "present" : "missing"}`,
-          `Control token: ${health.body && health.body.control_token_configured ? "configured" : "missing"}`,
-          `Live execution support: ${mode.live_supported === false ? "not implemented in v2" : "available"}`,
-          `Started at: ${state.started_at || "-"}`,
-          `Events: ${state.event_count || 0}`,
-          `Balance: $${fmtNum((state.account || {}).balance || 0, 2)}`,
-          `Realized PnL: $${fmtNum((state.account || {}).realized_pnl || 0, 2)}`,
-        ];
-        chips.innerHTML = chipsList.map((t) => `<span class="chip">${t}</span>`).join("");
-
-        renderSymbols(snapshot.body);
-        renderTrades(snapshot.body);
-        out.textContent = JSON.stringify({ health, snapshot, control: status }, null, 2);
-      }
-
-      setInterval(refreshAll, 5000);
-      refreshAll();
-    </script>
-  </body>
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
 </html>
