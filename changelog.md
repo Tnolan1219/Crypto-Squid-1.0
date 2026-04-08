@@ -9,6 +9,14 @@
 - Added Vultr deployment bundle under `ops/vultr/` (bootstrap script, systemd units, nginx template, checklist, runbook)
 - Added minimal Vercel proxy dashboard project under `ops/vercel-dashboard/` for remote monitoring and control
 
+## 2026-04-08 - Live Deployment Execution
+- Deployed current runtime to Vultr VPS `45.76.2.84` via automated SFTP + remote bootstrap flow
+- Verified services active: `cryptosquid-engine` and `cryptosquid-dashboard`
+- Verified health, snapshot, and authenticated control endpoints locally and externally
+- Enabled and verified host security controls: UFW + fail2ban + unattended-upgrades
+- Deployed Vercel proxy dashboard and verified remote start/stop actions through Vercel API routes
+- Fixed VPS dependency compatibility by pinning `numpy==2.2.6` for Ubuntu 22.04 Python 3.10 runtime
+
 ## 2026-04-04 - VPS Runtime Attach Layer
 - Added modular runtime orchestration under `core/` with `Engine`, `StrategyManager`, `ExecutionRouter`, and Supabase control polling
 - Added strategy adapter `strategies/coinbase_v2_strategy.py` that runs existing v2 logic without strategy rule changes
