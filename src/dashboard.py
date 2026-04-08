@@ -34,7 +34,10 @@ def _engine_running(state: dict) -> bool:
         then = int(datetime.fromisoformat(ts).timestamp())
         return (now - then) <= 20
     except Exception:
-        return False
+        try:
+            return (time.time() - RUNTIME_STATE_PATH.stat().st_mtime) <= 20
+        except Exception:
+            return False
 
 
 def _control_token() -> str:
@@ -119,12 +122,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/health":
             state = _read_state()
+            coinbase = REPORTING.snapshot().payload
             self._json(
                 {
                     "status": "ok",
                     "runtime_state_exists": RUNTIME_STATE_PATH.exists(),
                     "control_token_configured": bool(_control_token()),
                     "engine_running": _engine_running(state),
+                    "coinbase_reporting_ok": bool(coinbase.get("ok")),
                 }
             )
             return

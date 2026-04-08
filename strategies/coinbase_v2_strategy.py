@@ -253,6 +253,7 @@ class CoinbaseV2Strategy(Strategy):
         if self._live_entry_order is not None:
             order_id = str(self._live_entry_order.get("order_id", ""))
             if order_id:
+                payload: dict = {}
                 try:
                     payload = self._live_client.get_order(order_id)
                     status = str(payload.get("status") or payload.get("order_status") or "").upper()
@@ -368,6 +369,7 @@ class CoinbaseV2Strategy(Strategy):
         payload = {
             "status": "running",
             "started_at": self._started_at,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "mode": {
                 "trading_enabled": True,
                 "paper_mode": self.config.get("mode", "paper") == "paper",
