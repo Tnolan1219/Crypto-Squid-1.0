@@ -4,7 +4,7 @@
 Coinbase Advanced Trade (WebSocket + REST)
 
 ## Phase
-v2 Strategy Build — Event Study + Paper Validation
+v3.1 Strategy Build — Source-of-Truth Multi-Asset Runtime
 
 ## Last Completed Step
 Built full CRYPTO SQUID v2 system:
@@ -18,7 +18,7 @@ Built full CRYPTO SQUID v2 system:
 - All strategy docs updated: core-rules.md, tunable-params.md, v2-params.md
 
 ## In Progress
-Phase 1 — Event collection. Run bot_v2.py to accumulate candidate events.
+Phase 1 — Event collection with Crypto Squid 3.0 universe and filters.
 
 ## Runtime Status
 - VPS attach layer ready:
@@ -32,7 +32,7 @@ Phase 1 — Event collection. Run bot_v2.py to accumulate candidate events.
   - Manual runtime gate at `data/control/runtime_control.json`
   - Vultr deploy assets in `ops/vultr/`
   - Vercel proxy dashboard scaffold in `ops/vercel-dashboard/`
-- Strategy logic remains unchanged (adapter wraps existing v2 behavior)
+- Strategy logic upgraded to Crypto Squid 3.0 (v2 preserved as legacy snapshot)
 - Production deployment status:
   - Vultr VPS live at `45.76.2.84` (engine + dashboard services active)
   - UFW enabled (`22`, `80`, `443`), fail2ban active, unattended-upgrades active
@@ -48,9 +48,10 @@ Phase 1 — Event collection. Run bot_v2.py to accumulate candidate events.
 - [ ] User explicit sign-off: "approved for live"
 
 ## Next Actions
-- [ ] Run: `.venv/Scripts/python.exe src/bot_v2.py`
-- [ ] Monitor output every 10 seconds — confirm prices, drop%, z-score, spread
-- [ ] Let run for hours/days to accumulate events
+- [ ] Run: `.venv/Scripts/python.exe scripts/run_all.py`
+- [ ] Confirm `coinbase_v3` strategy is enabled in `.env` (Crypto-Squid 3.1)
+- [ ] Monitor runtime state + dashboard for full active symbol universe
+- [ ] Let run for hours/days to accumulate candidate events and paper trades
 - [ ] Add DNS domain for VPS API and enable TLS via certbot (currently HTTP)
 - [ ] Rotate exposed Coinbase API key + VPS root password, then update `/opt/cryptosquid/.env`
 - [ ] Run `/weekly-review` after 1 week of data
@@ -61,7 +62,8 @@ Phase 1 — Event collection. Run bot_v2.py to accumulate candidate events.
 
 | Command | Purpose |
 |---|---|
-| `.venv/Scripts/python.exe src/bot_v2.py` | v2 WebSocket bot — primary |
+| `.venv/Scripts/python.exe scripts/run_all.py` | Master engine runtime (coinbase_v3 default) |
+| `.venv/Scripts/python.exe src/bot_v2.py` | v2 WebSocket bot — legacy only |
 | `.venv/Scripts/python.exe src/bot.py` | v1 REST polling bot — sanity check only |
 
 ## Architecture (current)
@@ -71,10 +73,11 @@ src/
   bot_v2.py          — main v2 loop (WebSocket-driven, event study)
   coinbase_ws.py     — Coinbase WebSocket client (trades + L2)
   bar_builder.py     — 1-second bars + rolling stats (thread-safe)
-  signal_v2.py       — 5-stage signal state machine
-  paper_engine_v2.py — staged exits (TP1 → breakeven stop → TP2 → time stop)
+  signal_v3.py       — Crypto-Squid 3.1 state machine (5m panic + stronger stabilization)
+  paper_engine_v3.py — staged exits + trailing stop after TP1
   event_collector.py — CSV event logger (data/events/events.csv)
-  params_v2.py       — all v2 parameters as frozen dataclasses
+  params_v3.py       — all v3 parameters as frozen dataclasses
+  params_v1_0.py     — legacy snapshot aliases (preserved old strategy)
   risk.py            — position_size() + full RiskEngine
   runtime_store.py   — atomic JSON state writer
   --- v1 (preserved, still functional) ---

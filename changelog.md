@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-11 - Crypto-Squid 3.1 (Official Source of Truth)
+- Promoted strategy naming and runtime versioning to `Crypto-Squid 3.1`
+- Upgraded `src/params_v3.py` with 3.1 per-asset table (BTC/ETH/SOL/DOGE/ADA/AVAX/POL/MATIC)
+- Added non-fragile timing profile (5m panic window, longer stabilization windows)
+- Added capital-per-trade controls, portfolio total exposure cap, and BTC stress gate for alt entries
+- Added live safety requirements: `TRADING_ENABLED=true` and `LIVE_TRADING_CONFIRM=YES`
+- Added 3.1 source-of-truth docs under `docs/crypto-squid-3.1/`
+
+## 2026-04-11 - Crypto Squid 3.0 Upgrade (Multi-Asset + Adaptive Filters)
+- Added `src/params_v3.py` with Crypto Squid 3.0 risk, signal, and per-symbol configuration
+- Preserved prior baseline as `src/params_v1_0.py` (legacy snapshot aliasing prior v2 config)
+- Added `src/signal_v3.py` with new regime filter (15m VWAP or non-negative EMA slope), tightened disorder filter, and upgraded stabilization checks
+- Added `src/paper_engine_v3.py` with trailing stop management after TP1
+- Added `strategies/coinbase_v3_strategy.py` with active Coinbase product filtering and simultaneous multi-symbol scanning
+- Updated engine registration/defaults to support and prefer `coinbase_v3`
+- Updated dashboard symbol table and chart labels to reflect dynamic multi-asset scanning
+- Updated project state in `STATE.md` for v3 runtime and next actions
+
 ## 2026-04-08 - Live Reporting + Repeatable Ops Playbooks
 - Added Coinbase reporting pipeline at `src/coinbase_reporting.py` (prices, balances, open orders, recent fills)
 - Expanded `src/dashboard.py` snapshot/health payloads with reporting + engine heartbeat fields

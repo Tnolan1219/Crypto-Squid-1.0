@@ -36,7 +36,7 @@ class RuntimeSettings:
 
 def load_settings() -> RuntimeSettings:
     enabled = tuple(
-        s.strip() for s in os.getenv("ENABLED_STRATEGIES", "coinbase_v2").split(",") if s.strip()
+        s.strip() for s in os.getenv("ENABLED_STRATEGIES", "coinbase_v3").split(",") if s.strip()
     )
     return RuntimeSettings(
         env=os.getenv("ENV", "production"),
@@ -47,7 +47,7 @@ def load_settings() -> RuntimeSettings:
         account_capital_usd=float(os.getenv("ACCOUNT_CAPITAL_USD", "1000")),
         max_daily_loss_usd=float(os.getenv("MAX_DAILY_LOSS_USD", "50")),
         max_position_default=float(os.getenv("MAX_POSITION_DEFAULT", "0.20")),
-        enabled_strategies=enabled if enabled else ("coinbase_v2",),
+        enabled_strategies=enabled if enabled else ("coinbase_v3",),
         supabase_url=os.getenv("SUPABASE_URL", "").strip(),
         supabase_key=os.getenv("SUPABASE_KEY", "").strip(),
         coinbase_api_key_name=os.getenv("COINBASE_API_KEY_NAME", "").strip(),

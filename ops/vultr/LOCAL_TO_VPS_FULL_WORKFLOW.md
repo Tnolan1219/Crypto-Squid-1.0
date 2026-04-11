@@ -98,6 +98,18 @@ git push origin main
 
 VPS auto-sync pulls and applies in about 60 seconds.
 
+## 4.1) Persistent deployment method (do not ask again)
+
+- Primary deploy path: `git push origin main` from local source-of-truth repo.
+- VPS applies updates via `cryptosquid-sync.timer` every minute.
+- Agent default behavior:
+  1. implement changes locally
+  2. run local validation checks
+  3. commit and push to `main`
+  4. verify VPS health/snapshot endpoints
+- Direct SSH is only required for timer/service break-glass operations.
+- SSH material/location must be maintained in operator environment, never in repo.
+
 ### VPS health checks
 ```bash
 systemctl is-active cryptosquid-engine

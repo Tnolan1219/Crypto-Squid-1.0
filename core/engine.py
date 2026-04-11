@@ -10,6 +10,7 @@ from core.settings import ROOT, load_settings
 from core.strategy_manager import StrategyManager
 from core.supabase_control import SupabaseControl
 from strategies.coinbase_v2_strategy import CoinbaseV2Strategy
+from strategies.coinbase_v3_strategy import CoinbaseV3Strategy
 
 
 class Engine:
@@ -55,6 +56,19 @@ class Engine:
         temp.replace(self._runtime_control_path)
 
     def _register_strategies(self) -> None:
+        if "coinbase_v3" in self.settings.enabled_strategies:
+            strategy = CoinbaseV3Strategy(
+                config={
+                    "mode": "paper",
+                    "max_position": self.settings.max_position_default,
+                    "warmup_seconds": self.settings.warmup_seconds,
+                    "account_capital_usd": self.settings.account_capital_usd,
+                },
+                execution_router=self.execution_router,
+                root=self.root,
+            )
+            self.manager.register("coinbase_v3", strategy)
+
         if "coinbase_v2" in self.settings.enabled_strategies:
             strategy = CoinbaseV2Strategy(
                 config={

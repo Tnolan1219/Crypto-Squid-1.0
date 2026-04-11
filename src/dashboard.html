@@ -141,7 +141,7 @@
   <div class="bg-orb one"></div>
   <div class="bg-orb two"></div>
   <div class="wrap">
-    <h1>Crypto Squid Local Dashboard</h1>
+    <h1 id="dashboardTitle">Crypto-Squid Dashboard</h1>
     <div class="meta">
       <div class="pill" id="updatedAt">Updated: --</div>
       <div class="pill" id="modeTag">Mode: --</div>
@@ -162,11 +162,11 @@
 
     <div class="grid chart-grid" style="margin-top:12px;">
       <div class="panel">
-        <p class="chart-title">BTC % Change (3m window)</p>
+        <p class="chart-title" id="chart1Title">Symbol 1 % Change (3m window)</p>
         <svg class="chart" id="btcChart"></svg>
       </div>
       <div class="panel">
-        <p class="chart-title">ETH % Change (3m window)</p>
+        <p class="chart-title" id="chart2Title">Symbol 2 % Change (3m window)</p>
         <svg class="chart" id="ethChart"></svg>
       </div>
       <div class="panel">
@@ -184,7 +184,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Symbol</th><th>Price</th><th>Drop %</th><th>Z-Score</th></tr>
+            <tr><th>Symbol</th><th>Price</th><th>Drop %</th><th>Z-Score</th><th>Spread</th></tr>
           </thead>
           <tbody id="symbolRows"></tbody>
         </table>
@@ -304,6 +304,8 @@
 
     function render(state) {
       setText(document.getElementById("updatedAt"), `Updated: ${state.updated_at || "--"}`);
+      const strategyName = state.strategy_name || "Crypto-Squid";
+      setText(document.getElementById("dashboardTitle"), `${strategyName} Dashboard`);
       const mode = state.mode || {};
       let modeText = "Log-Only";
       if (mode.enable_live_trading) modeText = "Live Enabled";
@@ -331,7 +333,7 @@
       Object.keys(symbols).forEach(symbol => {
         const row = document.createElement("tr");
         const d = symbols[symbol] || {};
-        row.innerHTML = `<td>${symbol}</td><td>${Number(d.price || 0).toFixed(2)}</td><td>${Number(d.drop_pct || 0).toFixed(2)}%</td><td>${Number(d.zscore || 0).toFixed(2)}</td>`;
+        row.innerHTML = `<td>${symbol}</td><td>${Number(d.price || 0).toFixed(2)}</td><td>${Number(d.drop_pct || 0).toFixed(2)}%</td><td>${Number(d.zscore || 0).toFixed(2)}</td><td>${Number(d.spread_bps || 0).toFixed(2)} bps</td>`;
         symbolRows.appendChild(row);
       });
 
@@ -364,8 +366,13 @@
         tradeRows.appendChild(row);
       });
 
-      const btcHistory = symbols["BTC-USD"] ? symbols["BTC-USD"].history : [];
-      const ethHistory = symbols["ETH-USD"] ? symbols["ETH-USD"].history : [];
+      const symbolList = Object.keys(symbols);
+      const s1 = symbolList[0] || "BTC-USD";
+      const s2 = symbolList[1] || symbolList[0] || "ETH-USD";
+      setText(document.getElementById("chart1Title"), `${s1} % Change (3m window)`);
+      setText(document.getElementById("chart2Title"), `${s2} % Change (3m window)`);
+      const btcHistory = symbols[s1] ? symbols[s1].history : [];
+      const ethHistory = symbols[s2] ? symbols[s2].history : [];
       drawPercentChart("btcChart", pctSeriesFromHistory(btcHistory), "#3fa9f5");
       drawPercentChart("ethChart", pctSeriesFromHistory(ethHistory), "#f7b267");
 

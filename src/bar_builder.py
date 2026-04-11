@@ -204,3 +204,56 @@ class BarBuilder:
     @staticmethod
     def current_60s_volume(bars: list[Bar]) -> float:
         return sum(b.volume for b in bars[-60:])
+
+    @staticmethod
+    def vwap(bars: list[Bar], seconds: int = 900) -> float:
+        tail = bars[-seconds:]
+        notional = sum(b.close * b.volume for b in tail)
+        volume = sum(b.volume for b in tail)
+        if volume <= 0:
+            return 0.0
+        return notional / volume
+
+    @staticmethod
+    def ema_slope_bps(
+        bars: list[Bar],
+        seconds: int = 900,
+        ema_period_seconds: int = 120,
+        lookback_seconds: int = 30,
+    ) -> float:
+        tail = bars[-seconds:]
+        if len(tail) < max(ema_period_seconds, lookback_seconds + 2):
+            return 0.0
+        closes = [b.close for b in tail]
+        alpha = 2.0 / (ema_period_seconds + 1.0)
+        ema_values: list[float] = []
+        ema = closes[0]
+        for px in closes:
+            ema = alpha * px + (1.0 - alpha) * ema
+            ema_values.append(ema)
+        prev_idx = max(0, len(ema_values) - lookback_seconds - 1)
+        prev = ema_values[prev_idx]
+        last = ema_values[-1]
+        if prev <= 0:
+            return 0.0
+        return (last - prev) / prev * 10_000
+
+    @staticmethod
+    def buy_sell_volume(bars: list[Bar], seconds: int = 10) -> tuple[float, float]:
+        tail = bars[-seconds:]
+        buy = sum(b.buy_volume for b in tail)
+        sell = sum(b.sell_volume for b in tail)
+        return buy, sell
+
+    @staticmethod
+    def micro_higher_low(bars: list[Bar], recent_seconds: int = 10, prior_seconds: int = 10) -> bool:
+        need = recent_seconds + prior_seconds
+        if len(bars) < need:
+            return False
+        prior = bars[-need:-recent_seconds]
+        recent = bars[-recent_seconds:]
+        if not prior or not recent:
+            return False
+        prior_low = min(b.low for b in prior)
+        recent_low = min(b.low for b in recent)
+        return recent_low > prior_low
