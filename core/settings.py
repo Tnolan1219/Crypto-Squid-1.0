@@ -35,9 +35,16 @@ class RuntimeSettings:
 
 
 def load_settings() -> RuntimeSettings:
-    enabled = tuple(
+    enabled_raw = tuple(
         s.strip() for s in os.getenv("ENABLED_STRATEGIES", "coinbase_v3").split(",") if s.strip()
     )
+    normalized: list[str] = []
+    for item in enabled_raw:
+        if item == "coinbase_v2":
+            item = "coinbase_v3"
+        if item not in normalized:
+            normalized.append(item)
+    enabled = tuple(normalized)
     return RuntimeSettings(
         env=os.getenv("ENV", "production"),
         trading_enabled=_as_bool(os.getenv("TRADING_ENABLED", "true"), default=True),
