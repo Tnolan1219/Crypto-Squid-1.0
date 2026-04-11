@@ -7,6 +7,7 @@
 - Added capital-per-trade controls, portfolio total exposure cap, and BTC stress gate for alt entries
 - Added live safety requirements: `TRADING_ENABLED=true` and `LIVE_TRADING_CONFIRM=YES`
 - Added 3.1 source-of-truth docs under `docs/crypto-squid-3.1/`
+- Added VPS access/deploy contract doc at `ops/vultr/ACCESS_AND_DEPLOY_CONTRACT.md`
 
 ## 2026-04-11 - Crypto Squid 3.0 Upgrade (Multi-Asset + Adaptive Filters)
 - Added `src/params_v3.py` with Crypto Squid 3.0 risk, signal, and per-symbol configuration
